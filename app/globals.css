@@ -403,13 +403,70 @@ textarea {
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--hair);
-  padding: 10px 22px;
-  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  padding: 11px 22px;
+  padding-top: calc(11px + env(safe-area-inset-top, 0px));
   display: flex;
-  gap: 14px;
-  align-items: center;
+  gap: 18px;
+  align-items: flex-end;
   flex-wrap: wrap;
 }
+/* El título no compite por el espacio con los filtros: tiene el suyo y no
+   se encoge, así la fila de filtros empieza siempre en el mismo sitio. */
+.topbar .titulo {
+  flex: 0 0 auto;
+  min-width: 210px;
+  padding-bottom: 2px;
+}
+/*
+ * Los filtros son una rejilla, no una fila suelta. Antes crecían cada uno a
+ * su antojo y al no caber se descolgaban desalineados: siete controles de
+ * siete anchos distintos en dos renglones que no coincidían. Ahora todos
+ * parten del mismo ancho base, crecen igual y cuando bajan de renglón caen
+ * en columna con los de arriba.
+ */
+.topbar .filtros {
+  flex: 1 1 540px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+}
+.topbar .filtros .sel {
+  /* Ancho fijo, sin crecer: siete controles de siete anchos distintos es
+     justo lo que hacía ver la barra desordenada. Todos miden lo mismo y el
+     espacio sobrante se queda al final, no repartido de cualquier manera. */
+  flex: 0 1 158px;
+  min-width: 112px;
+}
+.topbar .filtros .sel select {
+  width: 100%;
+}
+/* Los botones viajan juntos y se alinean con la base de los controles. */
+.filtros-acc {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+.filtros-acc .btn {
+  min-height: 32px;
+}
+.cuenta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
 .topbar h2 {
   font-size: 16px;
   font-weight: 600;
@@ -447,13 +504,18 @@ input[type="text"] {
 select:hover {
   border-color: var(--axis);
 }
-/* Los nombres de modelo son largos; sin tope, un solo select estira la barra. */
-.topbar .sel select {
-  max-width: 176px;
-}
 @media (min-width: 1700px) {
-  .topbar .sel select {
-    max-width: 210px;
+  .topbar .filtros .sel {
+    flex-basis: 184px;
+  }
+}
+@media (max-width: 720px) {
+  .topbar .titulo {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+  .filtros-acc {
+    margin-left: 0;
   }
 }
 
@@ -1356,12 +1418,19 @@ hr.sep {
   }
 }
 
-/* Segunda fila de filtros, la de los niveles finos. */
+/* Segunda fila de filtros, la de los niveles finos. Misma rejilla que la de
+   arriba, para que las columnas coincidan entre las dos. */
 .topbar.fina {
-  padding-top: 0;
-  border-top: 0;
+  position: static;
+  padding-top: 11px;
   background: var(--surface-2);
-  gap: 10px;
+  backdrop-filter: none;
+}
+.topbar.fina .titulo h2 {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
 }
 
 /* ===========================================================================

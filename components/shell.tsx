@@ -173,11 +173,12 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <div className="main">
         <header className="topbar">
-          <div>
+          <div className="titulo">
             <h2>{titulo}</h2>
             <div className="sub">{sub}</div>
           </div>
-          <div className="spacer" />
+
+          <div className="filtros">
           <label className="sel">
             <span>Estado</span>
             <select value={filtro.estado ?? ""} onChange={(e) => setEstado(e.target.value)}>
@@ -261,34 +262,31 @@ export function Shell({ children }: { children: ReactNode }) {
               ))}
             </select>
           </label>
-          <button
-            className={`btn ghost sm ${masFiltros ? "on" : ""}`}
-            onClick={() => setMas(!masFiltros)}
-            aria-expanded={masFiltros}
-          >
-            {masFiltros ? "Menos filtros" : "Más filtros"}
-          </button>
-          {activos > 0 ? (
-            <button className="btn ghost sm" onClick={limpiar} title="Quitar todos los filtros">
-              Quitar filtros
-              <span
-                style={{
-                  background: "var(--accent)",
-                  color: "#fff",
-                  borderRadius: 999,
-                  padding: "0 6px",
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}
+            <div className="filtros-acc">
+              <button
+                className={`btn ghost sm ${masFiltros ? "on" : ""}`}
+                onClick={() => setMas(!masFiltros)}
+                aria-expanded={masFiltros}
               >
-                {activos}
-              </span>
-            </button>
-          ) : null}
+                {masFiltros ? "Menos filtros" : "Más filtros"}
+              </button>
+              {activos > 0 ? (
+                <button className="btn ghost sm" onClick={limpiar} title="Quitar todos los filtros">
+                  Quitar filtros
+                  <span className="cuenta">{activos}</span>
+                </button>
+              ) : null}
+            </div>
+          </div>
         </header>
 
         {masFiltros ? (
           <div className="topbar fina">
+            <div className="titulo">
+              <h2>Niveles finos</h2>
+              <div className="sub">Como compra la cadena, no como fabrica la marca</div>
+            </div>
+            <div className="filtros">
             <label className="sel">
               <span>Género</span>
               <select value={filtro.genero ?? ""} onChange={(e) => setGenero(e.target.value)}>
@@ -311,10 +309,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 ))}
               </select>
             </label>
-            <span className="note" style={{ margin: 0, alignSelf: "center" }}>
-              Género y material son los niveles con los que compra la cadena, no los
-              que usa la marca para fabricar.
-            </span>
+            </div>
           </div>
         ) : null}
 
