@@ -6,6 +6,7 @@ import { type ReactNode } from "react";
 import { useBI } from "@/lib/store";
 import { CORTE, fmt, filtrosActivos } from "@/lib/engine";
 import { CIUDADES, modelosDe, MODELOS } from "@/lib/catalog";
+import { CopilotoFlotante } from "./copiloto-flotante";
 
 const SECCIONES = [
   {
@@ -223,6 +224,9 @@ export function Shell({ children }: { children: ReactNode }) {
         </header>
         {children}
       </div>
+
+      {/* Disponible desde cualquier pantalla, y consciente de en cuál está. */}
+      <CopilotoFlotante />
     </div>
   );
 }
