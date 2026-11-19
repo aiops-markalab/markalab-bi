@@ -3,13 +3,14 @@
 /**
  * Reportes: la tabla dinámica.
  *
- * Un tablero contesta las preguntas que alguien previó. Esta pantalla
- * contesta la que al director se le ocurre en la junta, que casi nunca es la
- * misma. Se eligen los niveles por los que cortar, la dimensión que abre
- * columnas y las medidas a mostrar, y la tabla se arma sola.
+ * La configuración vive en un panel lateral, como en cualquier herramienta
+ * seria de análisis, y no repartida en botones por toda la pantalla. El
+ * centro es la tabla, que es lo que la gente vino a ver; el panel se usa dos
+ * minutos al principio y después estorba, así que se puede cerrar.
  *
- * Las plantillas de arriba son atajos: dejan la configuración puesta para las
- * cuatro preguntas que el canal departamental hace siempre.
+ * Los niveles y las medidas se eligen con casillas en listas agrupadas. El
+ * orden en que se marcan es el orden en que salen, y cada uno aparece como
+ * una pastilla en su casillero, que se puede quitar o mover a columnas.
  */
 
 import { useMemo, useState } from "react";
@@ -30,18 +31,12 @@ import {
   type Acumulado,
 } from "@/lib/pivot";
 
-type Plantilla = {
-  id: string;
-  nombre: string;
-  nota: string;
-  cfg: Config;
-};
+type Plantilla = { id: string; nombre: string; cfg: Config };
 
 const PLANTILLAS: Plantilla[] = [
   {
     id: "ejecutivo",
     nombre: "Resumen ejecutivo",
-    nota: "Qué vendió cada cadena y cuánto inventario sostiene",
     cfg: {
       filas: ["cadena"],
       valores: ["soVentana", "ventaMXN", "piezas", "cobertura", "capital"],
@@ -50,7 +45,6 @@ const PLANTILLAS: Plantilla[] = [
   {
     id: "comparativo",
     nombre: "Comparativo anual",
-    nota: "Este corte contra el mismo del año pasado",
     cfg: {
       filas: ["cadena", "coleccion"],
       valores: ["ventaMXN", "ventaAntMXN", "varMXN", "soVentana"],
@@ -59,7 +53,6 @@ const PLANTILLAS: Plantilla[] = [
   {
     id: "reposicion",
     nombre: "Reposición y quiebres",
-    nota: "Dónde falta y dónde sobra, por tienda",
     cfg: {
       filas: ["cadena", "sucursal"],
       valores: ["piezas", "soSemana", "cobertura", "sugerido", "perdida"],
@@ -67,28 +60,24 @@ const PLANTILLAS: Plantilla[] = [
   },
   {
     id: "mix",
-    nombre: "Mix por marca y género",
-    nota: "De qué se compone la venta, abierta por cadena",
-    cfg: {
-      filas: ["marca", "genero"],
-      columna: "cadena",
-      valores: ["ventaMXN"],
-    },
+    nombre: "Mix por marca",
+    cfg: { filas: ["marca", "genero"], columna: "cadena", valores: ["ventaMXN"] },
   },
 ];
 
 export default function Reportes() {
-  const { vista, filtro } = useBI();
+  const { vista } = useBI();
   const [cfg, setCfg] = useState<Config>(PLANTILLAS[0].cfg);
   const [plantilla, setPlantilla] = useState("ejecutivo");
   const [cerrados, setCerrados] = useState<Set<string>>(new Set());
   const [limite, setLimite] = useState(120);
+  const [panel, setPanel] = useState(true);
+  const [busca, setBusca] = useState("");
 
   const r = useMemo(() => pivotar(vista, cfg), [vista, cfg]);
   const medidas = cfg.valores.map(medidaPorId);
   const dimsFila = cfg.filas.slice(0, 3).map(dimensionPorId);
 
-  /* Una fila se esconde si alguno de sus padres está plegado. */
   const visibles = r.filas.filter((f) => {
     const partes = f.clave.split("|");
     for (let i = 1; i < partes.length; i++) {
@@ -97,29 +86,35 @@ export default function Reportes() {
     return true;
   });
 
-  const aplicar = (p: Plantilla) => {
-    setPlantilla(p.id);
-    setCfg(p.cfg);
+  const tocar = (c: Config) => {
+    setCfg(c);
+    setPlantilla("");
     setCerrados(new Set());
   };
 
-  const cambiarFila = (i: number, v: string) => {
-    const nuevas = [...cfg.filas];
-    if (v === "") nuevas.splice(i, 1);
-    else nuevas[i] = v as DimensionId;
-    setCfg({ ...cfg, filas: nuevas });
-    setPlantilla("");
-    setCerrados(new Set());
+  const alternarDim = (id: DimensionId) => {
+    if (cfg.columna === id) return tocar({ ...cfg, columna: undefined });
+    if (cfg.filas.includes(id))
+      return tocar({ ...cfg, filas: cfg.filas.filter((f) => f !== id) });
+    if (cfg.filas.length >= 3) return;
+    tocar({ ...cfg, filas: [...cfg.filas, id] });
+  };
+
+  const aColumnas = (id: DimensionId) =>
+    tocar({ ...cfg, filas: cfg.filas.filter((f) => f !== id), columna: id });
+
+  const aFilas = (id: DimensionId) => {
+    if (cfg.filas.length >= 3) return;
+    tocar({ ...cfg, columna: undefined, filas: [...cfg.filas, id] });
   };
 
   const alternarMedida = (id: MedidaId) => {
     const hay = cfg.valores.includes(id);
     if (hay && cfg.valores.length === 1) return;
-    setCfg({
+    tocar({
       ...cfg,
       valores: hay ? cfg.valores.filter((v) => v !== id) : [...cfg.valores, id],
     });
-    setPlantilla("");
   };
 
   const descargar = () => {
@@ -143,111 +138,48 @@ export default function Reportes() {
     return formatear(m, v);
   };
 
+  /* El buscador del panel filtra las dos listas a la vez. */
+  const q = busca.trim().toLowerCase();
+  const coincide = (t: string) => !q || t.toLowerCase().includes(q);
+  const gruposDim = ["Tienda", "Producto"] as const;
+  const gruposMed = ["Venta", "Inventario", "Alerta", "Conteo"] as const;
+
   return (
-    <div className="view">
-      <div className="card">
-        <h3>Plantillas</h3>
-        <p className="sub">
-          Las cuatro preguntas que el canal departamental hace siempre, con la
-          configuración ya puesta. Desde cualquiera se puede seguir moviendo.
-        </p>
-        <div className="plantillas">
-          {PLANTILLAS.map((p) => (
-            <button
-              key={p.id}
-              className={`plantilla ${plantilla === p.id ? "on" : ""}`}
-              onClick={() => aplicar(p)}
-            >
-              <strong>{p.nombre}</strong>
-              <span>{p.nota}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="card">
-        <h3>Campos</h3>
-        <p className="sub">
-          Las filas se anidan hasta tres niveles. La columna abre una dimensión a lo
-          ancho. Los valores son lo que se suma en cada celda.
-        </p>
-
-        <div className="campos">
-          <div>
-            <div className="campos-tit">Filas</div>
-            {[0, 1, 2].map((i) => (
-              <label className="sel" key={i} style={{ marginBottom: 6 }}>
-                <span>{["Primer nivel", "Segundo nivel", "Tercer nivel"][i]}</span>
-                <select value={cfg.filas[i] ?? ""} onChange={(e) => cambiarFila(i, e.target.value)}>
-                  <option value="">{i === 0 ? "Sin agrupar" : "Ninguno"}</option>
-                  {DIMENSIONES.filter(
-                    (d) => d.id === cfg.filas[i] || !cfg.filas.includes(d.id)
-                  ).map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.grupo} · {d.nombre}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ))}
-          </div>
-
-          <div>
-            <div className="campos-tit">Columna</div>
-            <label className="sel">
-              <span>Abre a lo ancho</span>
-              <select
-                value={cfg.columna ?? ""}
-                onChange={(e) => {
-                  setCfg({ ...cfg, columna: (e.target.value || undefined) as DimensionId });
-                  setPlantilla("");
+    <div className={`reportes ${panel ? "" : "sinpanel"}`}>
+      <div className="card rep-tabla">
+        <div className="rep-top">
+          <div className="rep-tabs" role="tablist" aria-label="Plantillas">
+            {PLANTILLAS.map((p) => (
+              <button
+                key={p.id}
+                role="tab"
+                aria-selected={plantilla === p.id}
+                className={plantilla === p.id ? "on" : ""}
+                onClick={() => {
+                  setPlantilla(p.id);
+                  setCfg(p.cfg);
+                  setCerrados(new Set());
                 }}
               >
-                <option value="">Ninguna</option>
-                {DIMENSIONES.filter((d) => !cfg.filas.includes(d.id)).map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.grupo} · {d.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <p className="note" style={{ marginTop: 10 }}>
-              Con columna abierta, cada medida se repite por cada valor de esa
-              dimensión. Conviene dejar una sola medida.
-            </p>
+                {p.nombre}
+              </button>
+            ))}
           </div>
-
-          <div style={{ gridColumn: "span 2" }}>
-            <div className="campos-tit">Valores</div>
-            <div className="medidas">
-              {MEDIDAS.map((m) => (
-                <button
-                  key={m.id}
-                  className={`btn ghost sm ${cfg.valores.includes(m.id) ? "on" : ""}`}
-                  onClick={() => alternarMedida(m.id)}
-                  title={m.grupo}
-                >
-                  {m.nombre}
-                </button>
-              ))}
-            </div>
+          <div className="rep-acc">
+            <span className="note" style={{ margin: 0 }}>
+              {fmt(r.filas.length)} renglones · {CORTE.etiqueta}
+            </span>
+            <button className="btn ghost sm" onClick={descargar}>
+              Descargar CSV
+            </button>
+            <button
+              className={`btn ghost sm ${panel ? "on" : ""}`}
+              onClick={() => setPanel(!panel)}
+              aria-expanded={panel}
+            >
+              Campos
+            </button>
           </div>
-        </div>
-      </div>
-
-      <div className="card">
-        <div
-          style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}
-        >
-          <h3 style={{ marginRight: "auto" }}>
-            {dimsFila.length ? dimsFila.map((d) => d.nombre).join(" › ") : "Total del alcance"}
-          </h3>
-          <span className="note" style={{ margin: 0 }}>
-            {fmt(r.filas.length)} renglones · corte {CORTE.etiqueta}
-          </span>
-          <button className="btn ghost sm" onClick={descargar}>
-            Descargar CSV
-          </button>
         </div>
 
         <div className="tablewrap">
@@ -322,8 +254,8 @@ export default function Reportes() {
 
         <div className="tfoot">
           <span>
-            Mostrando {fmt(Math.min(limite, visibles.length))} de {fmt(visibles.length)} renglones
-            visibles
+            Mostrando {fmt(Math.min(limite, visibles.length))} de {fmt(visibles.length)}{" "}
+            renglones
             {visibles.length > limite ? (
               <>
                 {" · "}
@@ -339,6 +271,140 @@ export default function Reportes() {
           </span>
         </div>
       </div>
+
+      {panel ? (
+        <aside className="card rep-panel" aria-label="Campos del reporte">
+          <div className="pan-cfg">
+            <div className="pan-well">
+              <span className="pan-et">Filas</span>
+              {cfg.filas.length ? (
+                cfg.filas.map((id) => {
+                  const d = dimensionPorId(id);
+                  return (
+                    <span className="pastilla" key={id}>
+                      {d.nombre}
+                      <button
+                        className="mover"
+                        onClick={() => aColumnas(id)}
+                        title="Mover a columnas"
+                      >
+                        col
+                      </button>
+                      <button onClick={() => alternarDim(id)} title="Quitar">
+                        ×
+                      </button>
+                    </span>
+                  );
+                })
+              ) : (
+                <span className="pan-vacio">Sin agrupar</span>
+              )}
+            </div>
+
+            <div className="pan-well">
+              <span className="pan-et">Columnas</span>
+              {cfg.columna ? (
+                <span className="pastilla">
+                  {dimensionPorId(cfg.columna).nombre}
+                  <button
+                    className="mover"
+                    onClick={() => aFilas(cfg.columna!)}
+                    title="Mover a filas"
+                  >
+                    fila
+                  </button>
+                  <button
+                    onClick={() => tocar({ ...cfg, columna: undefined })}
+                    title="Quitar"
+                  >
+                    ×
+                  </button>
+                </span>
+              ) : (
+                <span className="pan-vacio">Ninguna</span>
+              )}
+            </div>
+
+            <div className="pan-well">
+              <span className="pan-et">Valores</span>
+              {cfg.valores.map((id) => (
+                <span className="pastilla med" key={id}>
+                  {medidaPorId(id).nombre}
+                  <button onClick={() => alternarMedida(id)} title="Quitar">
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <input
+            className="pan-buscar"
+            type="search"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar un campo"
+            aria-label="Buscar un campo"
+          />
+
+          <div className="pan-lista">
+            <div className="pan-tit">Niveles</div>
+            {gruposDim.map((g) => {
+              const items = DIMENSIONES.filter((d) => d.grupo === g && coincide(d.nombre));
+              if (!items.length) return null;
+              return (
+                <div key={g}>
+                  <div className="pan-sub">{g}</div>
+                  {items.map((d) => {
+                    const enFilas = cfg.filas.includes(d.id);
+                    const enCols = cfg.columna === d.id;
+                    const tope = !enFilas && !enCols && cfg.filas.length >= 3;
+                    return (
+                      <label
+                        className={`pan-fila ${tope ? "tope" : ""}`}
+                        key={d.id}
+                        title={tope ? "Las filas admiten hasta tres niveles" : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={enFilas || enCols}
+                          disabled={tope}
+                          onChange={() => alternarDim(d.id)}
+                        />
+                        <span>{d.nombre}</span>
+                        {enCols ? <em>columna</em> : null}
+                      </label>
+                    );
+                  })}
+                </div>
+              );
+            })}
+
+            <div className="pan-tit" style={{ marginTop: 14 }}>
+              Métricas
+            </div>
+            {gruposMed.map((g) => {
+              const items = MEDIDAS.filter((m) => m.grupo === g && coincide(m.nombre));
+              if (!items.length) return null;
+              return (
+                <div key={g}>
+                  <div className="pan-sub">{g}</div>
+                  {items.map((m) => (
+                    <label className="pan-fila" key={m.id}>
+                      <input
+                        type="checkbox"
+                        checked={cfg.valores.includes(m.id)}
+                        onChange={() => alternarMedida(m.id)}
+                      />
+                      <span>{m.nombre}</span>
+                    </label>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </aside>
+      ) : null}
     </div>
   );
 }

@@ -2,17 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useBI } from "@/lib/store";
-import { CORTE, fmt, filtrosActivos } from "@/lib/engine";
-import {
-  CIUDADES,
-  modelosDe,
-  MODELOS,
-  MARCAS,
-  GENEROS,
-  MATERIALES,
-} from "@/lib/catalog";
+import { CORTE, fmt } from "@/lib/engine";
+import { Filtros } from "./filtros";
 import { CopilotoFlotante } from "./copiloto-flotante";
 
 /* Cada grupo lleva su color. No es decoración: en el rail hay ocho pantallas
@@ -77,44 +70,7 @@ const TITULOS: Record<string, [string, string]> = {
 
 export function Shell({ children }: { children: ReactNode }) {
   const ruta = usePathname();
-  /* Ocho filtros no caben en una línea sin que la barra se vuelva un muro.
-     Los cinco de siempre quedan a la vista y los tres finos se despliegan,
-     que es como lo resuelven las herramientas serias del ramo. */
-  const [masFiltros, setMas] = useState(false);
-  const {
-    data,
-    vista,
-    ind,
-    filtro,
-    setEstado,
-    setCiudad,
-    setCadena,
-    setMarca,
-    setColeccion,
-    setModelo,
-    setGenero,
-    setMaterial,
-    setUmbral,
-    limpiar,
-    tema,
-    setTema,
-  } = useBI();
-
-  /* Las listas se encadenan: la ciudad solo ofrece las del estado elegido, y
-     el modelo solo las referencias de la colección elegida. */
-  const estadosConPresencia = data.estados.filter((e) =>
-    data.sucursales.some((s) => s.estadoId === e.id)
-  );
-  const ciudades = CIUDADES.filter((c) => !filtro.estado || c.estadoId === filtro.estado);
-  const colecciones = filtro.marca
-    ? data.colecciones.filter((c) => c.marcaId === filtro.marca)
-    : data.colecciones;
-  const modelos = filtro.coleccion
-    ? modelosDe(filtro.coleccion)
-    : filtro.marca
-      ? MODELOS.filter((m) => colecciones.some((c) => c.id === m.coleccionId))
-      : MODELOS;
-  const activos = filtrosActivos(filtro);
+  const { data, vista, ind, tema, setTema } = useBI();
 
   const [titulo, sub] = TITULOS[ruta] ?? ["MarkaLab BI", ""];
   const alertas = vista.filter((c) => c.clase !== "sano").length;
@@ -177,141 +133,8 @@ export function Shell({ children }: { children: ReactNode }) {
             <h2>{titulo}</h2>
             <div className="sub">{sub}</div>
           </div>
-
-          <div className="filtros">
-          <label className="sel">
-            <span>Estado</span>
-            <select value={filtro.estado ?? ""} onChange={(e) => setEstado(e.target.value)}>
-              <option value="">Todos</option>
-              {estadosConPresencia.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="sel">
-            <span>Ciudad</span>
-            <select value={filtro.ciudad ?? ""} onChange={(e) => setCiudad(e.target.value)}>
-              <option value="">
-                {filtro.estado ? `Todas (${ciudades.length})` : "Todas"}
-              </option>
-              {ciudades.map((c) => (
-                <option key={`${c.estadoId}-${c.ciudad}`} value={c.ciudad}>
-                  {c.ciudad}
-                  {!filtro.estado ? ` · ${c.estadoId}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="sel">
-            <span>Cadena</span>
-            <select value={filtro.cadena ?? ""} onChange={(e) => setCadena(e.target.value)}>
-              <option value="">Todas</option>
-              {data.cadenas.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="sel">
-            <span>Marca</span>
-            <select value={filtro.marca ?? ""} onChange={(e) => setMarca(e.target.value)}>
-              <option value="">Todas</option>
-              {MARCAS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="sel">
-            <span>Colección</span>
-            <select value={filtro.coleccion ?? ""} onChange={(e) => setColeccion(e.target.value)}>
-              <option value="">
-                {filtro.marca ? `Todas (${colecciones.length})` : "Todas"}
-              </option>
-              {colecciones.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="sel">
-            <span>Modelo</span>
-            <select value={filtro.modelo ?? ""} onChange={(e) => setModelo(e.target.value)}>
-              <option value="">
-                {filtro.coleccion ? `Todos (${modelos.length})` : "Todos"}
-              </option>
-              {modelos.map((m) => (
-                <option key={m.sku} value={m.sku}>
-                  {m.sku} · {m.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="sel">
-            <span>Umbral</span>
-            <select value={filtro.umbral} onChange={(e) => setUmbral(Number(e.target.value))}>
-              {[8, 10, 12, 14, 16].map((u) => (
-                <option key={u} value={u}>
-                  {u} semanas
-                </option>
-              ))}
-            </select>
-          </label>
-            <div className="filtros-acc">
-              <button
-                className={`btn ghost sm ${masFiltros ? "on" : ""}`}
-                onClick={() => setMas(!masFiltros)}
-                aria-expanded={masFiltros}
-              >
-                {masFiltros ? "Menos filtros" : "Más filtros"}
-              </button>
-              {activos > 0 ? (
-                <button className="btn ghost sm" onClick={limpiar} title="Quitar todos los filtros">
-                  Quitar filtros
-                  <span className="cuenta">{activos}</span>
-                </button>
-              ) : null}
-            </div>
-          </div>
+          <Filtros />
         </header>
-
-        {masFiltros ? (
-          <div className="topbar fina">
-            <div className="titulo">
-              <h2>Niveles finos</h2>
-              <div className="sub">Como compra la cadena, no como fabrica la marca</div>
-            </div>
-            <div className="filtros">
-            <label className="sel">
-              <span>Género</span>
-              <select value={filtro.genero ?? ""} onChange={(e) => setGenero(e.target.value)}>
-                <option value="">Todos</option>
-                {GENEROS.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="sel">
-              <span>Material</span>
-              <select value={filtro.material ?? ""} onChange={(e) => setMaterial(e.target.value)}>
-                <option value="">Todos</option>
-                {MATERIALES.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </label>
-            </div>
-          </div>
-        ) : null}
 
         {children}
       </div>

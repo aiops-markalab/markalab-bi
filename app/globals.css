@@ -410,74 +410,8 @@ textarea {
   align-items: flex-end;
   flex-wrap: wrap;
 }
-/* El título no compite por el espacio con los filtros: tiene el suyo y no
-   se encoge, así la fila de filtros empieza siempre en el mismo sitio. */
-.topbar .titulo {
-  flex: 0 0 auto;
-  min-width: 210px;
-  padding-bottom: 2px;
-}
-/*
- * Los filtros son una rejilla, no una fila suelta. Antes crecían cada uno a
- * su antojo y al no caber se descolgaban desalineados: siete controles de
- * siete anchos distintos en dos renglones que no coincidían. Ahora todos
- * parten del mismo ancho base, crecen igual y cuando bajan de renglón caen
- * en columna con los de arriba.
- */
-.topbar .filtros {
-  flex: 1 1 540px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px 12px;
-}
-.topbar .filtros .sel {
-  /* Ancho fijo, sin crecer: siete controles de siete anchos distintos es
-     justo lo que hacía ver la barra desordenada. Todos miden lo mismo y el
-     espacio sobrante se queda al final, no repartido de cualquier manera. */
-  flex: 0 1 158px;
-  min-width: 112px;
-}
-.topbar .filtros .sel select {
-  width: 100%;
-}
-/* Los botones viajan juntos y se alinean con la base de los controles. */
-.filtros-acc {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  margin-left: auto;
-}
-.filtros-acc .btn {
-  min-height: 32px;
-}
-.cuenta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 5px;
-  margin-left: 6px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 10.5px;
-  font-weight: 700;
-}
-
-.topbar h2 {
-  font-size: 16px;
-  font-weight: 600;
-}
-.topbar .sub {
-  font-size: 11.5px;
-  color: var(--ink-3);
-}
-.spacer {
-  flex: 1 1 auto;
-}
+/* Un control con su rótulo encima. Lo usan la barra de filtros, el panel de
+   campos de Reportes y cualquier pantalla que pida un dato. */
 .sel {
   display: flex;
   flex-direction: column;
@@ -504,18 +438,142 @@ input[type="text"] {
 select:hover {
   border-color: var(--axis);
 }
-@media (min-width: 1700px) {
-  .topbar .filtros .sel {
-    flex-basis: 184px;
-  }
+.spacer {
+  flex: 1 1 auto;
 }
+
+/* El título tiene su columna y no se encoge. */
+.topbar .titulo {
+  flex: 0 0 auto;
+  min-width: 200px;
+  padding-bottom: 1px;
+}
+
+/*
+ * La barra de filtros.
+ *
+ * Ocho controles siempre a la vista convertían la cabecera en un muro. Lo que
+ * se ve ahora es un botón y lo que esté puesto; el panel con todos los
+ * controles se abre debajo y se cierra.
+ */
+.barra {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.filtro-btn {
+  min-height: 30px;
+}
+.puesto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 5px 4px 10px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--hair));
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--accent-ink);
+  line-height: 1.35;
+  white-space: nowrap;
+  max-width: 260px;
+  overflow: hidden;
+}
+.puesto b {
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  opacity: 0.65;
+}
+.puesto button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 5px;
+}
+.puesto button:hover {
+  opacity: 1;
+  background: rgba(10, 18, 32, 0.08);
+}
+/* El umbral siempre tiene valor, así que es un dato, no un filtro puesto. */
+.puesto.umbral {
+  background: var(--surface-2);
+  border-color: var(--hair);
+  color: var(--ink-2);
+  padding-right: 10px;
+}
+.limpiar {
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  padding: 4px 2px;
+}
+.limpiar:hover {
+  color: var(--ink);
+}
+
+.panel-filtros {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 40;
+  width: min(760px, calc(100vw - 60px));
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(10, 18, 32, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pf-grupo + .pf-grupo {
+  border-top: 1px solid var(--hair);
+  padding-top: 13px;
+}
+.pf-tit {
+  font-size: 9.5px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ink-3);
+  margin-bottom: 9px;
+}
+.pf-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: 10px 12px;
+}
+.pf-campos .sel select {
+  width: 100%;
+}
+.pf-pie {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--hair);
+  padding-top: 12px;
+}
+
+
 @media (max-width: 720px) {
   .topbar .titulo {
     min-width: 0;
     flex: 1 1 100%;
-  }
-  .filtros-acc {
-    margin-left: 0;
   }
 }
 
@@ -1418,87 +1476,217 @@ hr.sep {
   }
 }
 
-/* Segunda fila de filtros, la de los niveles finos. Misma rejilla que la de
-   arriba, para que las columnas coincidan entre las dos. */
-.topbar.fina {
-  position: static;
-  padding-top: 11px;
-  background: var(--surface-2);
-  backdrop-filter: none;
-}
-.topbar.fina .titulo h2 {
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--ink-2);
-}
+
 
 /* ===========================================================================
-   Reportes: plantillas, panel de campos y tabla dinámica
+   Reportes
+   La configuración vive en un panel lateral, como en cualquier herramienta
+   seria de análisis. El centro es la tabla; el panel se usa dos minutos al
+   principio y después se cierra.
    =========================================================================== */
 
-.plantillas {
+.reportes {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 10px;
-  margin-top: 12px;
+  grid-template-columns: minmax(0, 1fr) 272px;
+  gap: 14px;
+  align-items: start;
+  padding: 20px 22px 64px;
 }
-.plantilla {
-  text-align: left;
-  padding: 12px 14px;
-  border: 1px solid var(--hair);
-  border-radius: 10px;
-  background: var(--surface);
-  cursor: pointer;
-  font-family: var(--font-ui);
-  transition: border-color 0.12s, background 0.12s;
+.reportes.sinpanel {
+  grid-template-columns: minmax(0, 1fr);
 }
-.plantilla:hover {
-  border-color: var(--accent);
-}
-.plantilla.on {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.plantilla strong {
-  display: block;
-  font-size: 13px;
-  color: var(--ink);
-  margin-bottom: 3px;
-}
-.plantilla span {
-  font-size: 11.5px;
-  color: var(--ink-3);
-  line-height: 1.4;
+@media (max-width: 1080px) {
+  .reportes {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
-.campos {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 18px;
-  margin-top: 14px;
+.rep-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
-.campos-tit {
-  font-size: 9.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  font-weight: 700;
-  margin-bottom: 8px;
+/* Pestañas, no tarjetas: cuatro atajos no merecen cuatro cajas. */
+.rep-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--hair);
+  border-radius: 9px;
+  padding: 3px;
 }
-.campos .sel {
-  width: 100%;
+.rep-tabs button {
+  border: 0;
+  background: transparent;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
 }
-.campos .sel select {
-  width: 100%;
+.rep-tabs button:hover {
+  color: var(--ink);
 }
-.medidas {
+.rep-tabs button.on {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(10, 18, 32, 0.12);
+}
+.rep-acc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.rep-panel {
+  position: sticky;
+  top: 86px;
+  max-height: calc(100vh - 110px);
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  gap: 10px;
+}
+
+/* Los casilleros: lo que está puesto, de un vistazo. */
+.pan-cfg {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.pan-well {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 5px 7px;
+  background: var(--surface-2);
+  border: 1px solid var(--hair);
+  border-radius: 8px;
 }
-.medidas .btn {
+.pan-et {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ink-3);
+  margin-right: 2px;
+}
+.pan-vacio {
   font-size: 11.5px;
+  color: var(--ink-3);
+  font-style: italic;
+}
+.pastilla {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 9px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--hair));
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--accent-ink);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.pastilla.med {
+  background: var(--surface-3);
+  border-color: var(--hair);
+  color: var(--ink-2);
+}
+.pastilla button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 4px;
+}
+.pastilla button:hover {
+  opacity: 1;
+  background: rgba(10, 18, 32, 0.08);
+}
+/* Mover un nivel entre filas y columnas. Una flecha de teclado no se
+   entiende a 11 px; la palabra sí. */
+.pastilla button.mover {
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 2px 5px;
+  opacity: 0.5;
+}
+
+.pan-buscar {
+  width: 100%;
+}
+.pan-lista {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+.pan-tit {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ink-2);
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: 4px;
+}
+.pan-sub {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin: 9px 0 2px;
+}
+.pan-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.pan-fila:hover {
+  background: var(--surface-2);
+}
+.pan-fila.tope {
+  opacity: 0.42;
+  cursor: default;
+}
+.pan-fila input {
+  width: 14px;
+  height: 14px;
+  min-height: 0;
+  accent-color: var(--accent);
+  flex: none;
+}
+.pan-fila span {
+  flex: 1;
+}
+.pan-fila em {
+  font-style: normal;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  font-weight: 700;
 }
 
 table.pivote {
