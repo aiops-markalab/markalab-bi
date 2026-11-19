@@ -2,14 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useBI } from "@/lib/store";
 import { CORTE, fmt, filtrosActivos } from "@/lib/engine";
-import { CIUDADES, modelosDe, MODELOS } from "@/lib/catalog";
+import {
+  CIUDADES,
+  modelosDe,
+  MODELOS,
+  MARCAS,
+  GENEROS,
+  MATERIALES,
+} from "@/lib/catalog";
 import { CopilotoFlotante } from "./copiloto-flotante";
 
+/* Cada grupo lleva su color. No es decoración: en el rail hay ocho pantallas
+   seguidas y sin separación visual uno no sabe dónde termina la ejecución del
+   día y dónde empieza la planeación del año, que son dos conversaciones
+   distintas con dos personas distintas de la mesa. */
 const SECCIONES = [
   {
+    tono: "ejecucion",
     grupo: "Ejecución",
     items: [
       { href: "/", etiqueta: "Resumen", clave: "resumen" },
@@ -19,6 +31,12 @@ const SECCIONES = [
     ],
   },
   {
+    tono: "analisis",
+    grupo: "Análisis",
+    items: [{ href: "/reportes", etiqueta: "Reportes", clave: "reportes" }],
+  },
+  {
+    tono: "planeacion",
     grupo: "Planeación",
     items: [
       { href: "/planeacion", etiqueta: "Escenarios", clave: "planeacion" },
@@ -26,10 +44,19 @@ const SECCIONES = [
     ],
   },
   {
+    tono: "inteligencia",
     grupo: "Inteligencia",
     items: [
       { href: "/copiloto", etiqueta: "Copiloto", clave: "copiloto" },
       { href: "/salud", etiqueta: "Salud del dato", clave: "salud" },
+    ],
+  },
+  {
+    tono: "sistema",
+    grupo: "Datos",
+    items: [
+      { href: "/carga", etiqueta: "Estado de carga", clave: "carga" },
+      { href: "/ayuda", etiqueta: "Centro de ayuda", clave: "ayuda" },
     ],
   },
 ];
@@ -39,14 +66,21 @@ const TITULOS: Record<string, [string, string]> = {
   "/mapa": ["Mapa de alertas", "Semáforo por estado y bandera por sucursal"],
   "/ejecucion": ["Qué atender", "Las decisiones de esta semana, ordenadas por impacto"],
   "/detalle": ["Detalle por tienda", "Inventario y desplazamiento por sucursal y modelo"],
+  "/reportes": ["Reportes", "Tabla dinámica: corta el corte por donde haga falta"],
   "/planeacion": ["Escenarios", "Mueve un supuesto y observa cómo se propaga hasta EBITDA"],
   "/resultados": ["Estado de resultados", "Proyección del escenario activo, por trimestre"],
   "/copiloto": ["Copiloto", "Especialista en inteligencia comercial y planeación"],
   "/salud": ["Salud del dato", "Qué porcentaje del negocio es realmente visible"],
+  "/carga": ["Estado de carga", "De dónde viene cada dato y qué está mapeado"],
+  "/ayuda": ["Centro de ayuda", "Guías paso a paso y respuestas sobre el corte vigente"],
 };
 
 export function Shell({ children }: { children: ReactNode }) {
   const ruta = usePathname();
+  /* Ocho filtros no caben en una línea sin que la barra se vuelva un muro.
+     Los cinco de siempre quedan a la vista y los tres finos se despliegan,
+     que es como lo resuelven las herramientas serias del ramo. */
+  const [masFiltros, setMas] = useState(false);
   const {
     data,
     vista,
@@ -55,8 +89,11 @@ export function Shell({ children }: { children: ReactNode }) {
     setEstado,
     setCiudad,
     setCadena,
+    setMarca,
     setColeccion,
     setModelo,
+    setGenero,
+    setMaterial,
     setUmbral,
     limpiar,
     tema,
@@ -69,7 +106,14 @@ export function Shell({ children }: { children: ReactNode }) {
     data.sucursales.some((s) => s.estadoId === e.id)
   );
   const ciudades = CIUDADES.filter((c) => !filtro.estado || c.estadoId === filtro.estado);
-  const modelos = filtro.coleccion ? modelosDe(filtro.coleccion) : MODELOS;
+  const colecciones = filtro.marca
+    ? data.colecciones.filter((c) => c.marcaId === filtro.marca)
+    : data.colecciones;
+  const modelos = filtro.coleccion
+    ? modelosDe(filtro.coleccion)
+    : filtro.marca
+      ? MODELOS.filter((m) => colecciones.some((c) => c.id === m.coleccionId))
+      : MODELOS;
   const activos = filtrosActivos(filtro);
 
   const [titulo, sub] = TITULOS[ruta] ?? ["MarkaLab BI", ""];
@@ -91,7 +135,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <span className="bi">BI</span>
         </div>
         {SECCIONES.map((s) => (
-          <div key={s.grupo}>
+          <div key={s.grupo} className="bloque" data-tono={s.tono}>
             <div className="grp">{s.grupo}</div>
             {s.items.map((i) => (
               <Link
@@ -171,10 +215,23 @@ export function Shell({ children }: { children: ReactNode }) {
             </select>
           </label>
           <label className="sel">
+            <span>Marca</span>
+            <select value={filtro.marca ?? ""} onChange={(e) => setMarca(e.target.value)}>
+              <option value="">Todas</option>
+              {MARCAS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sel">
             <span>Colección</span>
             <select value={filtro.coleccion ?? ""} onChange={(e) => setColeccion(e.target.value)}>
-              <option value="">Todas</option>
-              {data.colecciones.map((c) => (
+              <option value="">
+                {filtro.marca ? `Todas (${colecciones.length})` : "Todas"}
+              </option>
+              {colecciones.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nombre}
                 </option>
@@ -204,6 +261,13 @@ export function Shell({ children }: { children: ReactNode }) {
               ))}
             </select>
           </label>
+          <button
+            className={`btn ghost sm ${masFiltros ? "on" : ""}`}
+            onClick={() => setMas(!masFiltros)}
+            aria-expanded={masFiltros}
+          >
+            {masFiltros ? "Menos filtros" : "Más filtros"}
+          </button>
           {activos > 0 ? (
             <button className="btn ghost sm" onClick={limpiar} title="Quitar todos los filtros">
               Quitar filtros
@@ -222,6 +286,38 @@ export function Shell({ children }: { children: ReactNode }) {
             </button>
           ) : null}
         </header>
+
+        {masFiltros ? (
+          <div className="topbar fina">
+            <label className="sel">
+              <span>Género</span>
+              <select value={filtro.genero ?? ""} onChange={(e) => setGenero(e.target.value)}>
+                <option value="">Todos</option>
+                {GENEROS.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="sel">
+              <span>Material</span>
+              <select value={filtro.material ?? ""} onChange={(e) => setMaterial(e.target.value)}>
+                <option value="">Todos</option>
+                {MATERIALES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="note" style={{ margin: 0, alignSelf: "center" }}>
+              Género y material son los niveles con los que compra la cadena, no los
+              que usa la marca para fabricar.
+            </span>
+          </div>
+        ) : null}
+
         {children}
       </div>
 

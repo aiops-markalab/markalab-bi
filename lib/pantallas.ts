@@ -49,6 +49,9 @@ export function alcance(f: Filtro): string {
   return p.length ? p.join(" · ") : "todo el canal";
 }
 
+/** El corte es fijo en toda la plataforma; se lee del primer combo. */
+const corteEtiqueta = (_v: Combo[]) => "vigente";
+
 export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
   const { vista, ind, hallazgos, filtro } = d;
   const donde = alcance(filtro);
@@ -143,6 +146,45 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
           "¿Qué decisiones no debería tomar con esta cobertura de dato?",
           "¿Cómo le pido a la cadena que reporte lo que falta?",
           "¿Cuánto vale cerrar esa brecha de información?",
+        ],
+      };
+    }
+
+    case "/reportes": {
+      return {
+        clave: "reportes",
+        titulo: "Reportes",
+        saludo: `Estás armando un reporte sobre ${donde}: ${fmt(vista.length)} combinaciones dentro del alcance. Dime qué quieres saber y te digo por qué niveles cortarlo.`,
+        sugeridas: [
+          "¿Cómo veo qué colección se está cayendo contra el año pasado?",
+          "¿Qué niveles uso para enseñarle esto al comprador de Liverpool?",
+          "¿Por qué la cobertura del total no es el promedio de los renglones?",
+        ],
+      };
+    }
+
+    case "/carga": {
+      return {
+        clave: "carga",
+        titulo: "Estado de carga",
+        saludo: `Estás viendo de dónde viene el dato. Hoy reporta sell-out el ${fmt(ind.coberturaReporte, 1)}% de la red. ¿Te digo qué se puede y qué no se puede decidir con eso?`,
+        sugeridas: [
+          "¿Qué pasa con las tiendas que no reportan?",
+          "¿Qué haría falta para conectar los datos reales de las cadenas?",
+          "¿Cómo le explico al cliente que los datos de esta demostración son simulados?",
+        ],
+      };
+    }
+
+    case "/ayuda": {
+      return {
+        clave: "ayuda",
+        titulo: "Centro de ayuda",
+        saludo: `Pregúntame lo que necesites de la plataforma. Si hay una guía escrita te la doy, y si no, te contesto con las cifras del corte ${corteEtiqueta(vista)}.`,
+        sugeridas: [
+          "¿Cómo armo un reporte comparativo?",
+          "¿Por qué no puedo mover una pieza de Liverpool a Sears?",
+          "¿Qué hace Argos exactamente?",
         ],
       };
     }

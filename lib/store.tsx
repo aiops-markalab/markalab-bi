@@ -38,7 +38,10 @@ type Ctx = {
   setEstado: (v: string) => void;
   setCiudad: (v: string) => void;
   setCadena: (v: string) => void;
+  setMarca: (v: string) => void;
   setColeccion: (v: string) => void;
+  setGenero: (v: string) => void;
+  setMaterial: (v: string) => void;
   setModelo: (v: string) => void;
   setUmbral: (v: number) => void;
   limpiar: () => void;
@@ -72,7 +75,10 @@ export function Proveedor({ children }: { children: ReactNode }) {
      ni hace falta saberlo. */
   const data = useMemo(() => cargarCorte(), []);
   const [cadena, setCadenaRaw] = useState("");
+  const [marca, setMarcaRaw] = useState("");
   const [coleccion, setColeccionRaw] = useState("");
+  const [genero, setGenero] = useState("");
+  const [material, setMaterial] = useState("");
   const [estado, setEstadoRaw] = useState("");
   const [ciudad, setCiudadRaw] = useState("");
   const [modelo, setModelo] = useState("");
@@ -89,8 +95,8 @@ export function Proveedor({ children }: { children: ReactNode }) {
   }, [data, umbral]);
 
   const filtro: Filtro = useMemo(
-    () => ({ estado, ciudad, cadena, coleccion, modelo, umbral }),
-    [estado, ciudad, cadena, coleccion, modelo, umbral]
+    () => ({ estado, ciudad, cadena, marca, coleccion, modelo, genero, material, umbral }),
+    [estado, ciudad, cadena, marca, coleccion, modelo, genero, material, umbral]
   );
 
   /* Los filtros son jerárquicos: cambiar el padre limpia al hijo para que
@@ -101,6 +107,11 @@ export function Proveedor({ children }: { children: ReactNode }) {
   }, []);
   const setCiudad = useCallback((v: string) => setCiudadRaw(v), []);
   const setCadena = useCallback((v: string) => setCadenaRaw(v), []);
+  const setMarca = useCallback((v: string) => {
+    setMarcaRaw(v);
+    setColeccionRaw("");
+    setModelo("");
+  }, []);
   const setColeccion = useCallback((v: string) => {
     setColeccionRaw(v);
     setModelo("");
@@ -117,8 +128,11 @@ export function Proveedor({ children }: { children: ReactNode }) {
     setEstadoRaw("");
     setCiudadRaw("");
     setCadenaRaw("");
+    setMarcaRaw("");
     setColeccionRaw("");
     setModelo("");
+    setGenero("");
+    setMaterial("");
   }, []);
 
   const actualizarEscenario = useCallback(
@@ -176,7 +190,10 @@ export function Proveedor({ children }: { children: ReactNode }) {
     setEstado,
     setCiudad,
     setCadena,
+    setMarca,
     setColeccion,
+    setGenero,
+    setMaterial,
     setModelo,
     setUmbral,
     limpiar,

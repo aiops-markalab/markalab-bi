@@ -174,6 +174,12 @@ export type Combo = {
   tr: number;
   /** Desplazamiento promedio semanal de la ventana. */
   so: number;
+  /**
+   * El mismo desplazamiento, pero del mismo corte del año pasado. Es la
+   * columna que todo comprador pide primero: no le interesa cuánto vendió
+   * esta semana, le interesa si vendió más o menos que el año pasado.
+   */
+  soAnt: number;
   /** Sell-out semana a semana, el más reciente al final. */
   hist: number[];
   /** Días que el inventario lleva en el canal. */
@@ -274,6 +280,22 @@ function surtido(suc: Sucursal, rnd: () => number): { col: Coleccion; mod: Model
   return salida;
 }
 
+/**
+ * Cuánto creció cada colección contra el año pasado. Determinista por id,
+ * así que la misma colección crece lo mismo en cada apertura de la demo.
+ * Rango: de -24% a +42%.
+ */
+const DERIVAS = new Map<string, number>();
+function derivaColeccion(id: string): number {
+  const hay = DERIVAS.get(id);
+  if (hay !== undefined) return hay;
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  const v = 0.76 + (mulberry32(SEMILLA + h)() * 0.66);
+  DERIVAS.set(id, v);
+  return v;
+}
+
 export function generar(): Dataset {
   const rnd = mulberry32(SEMILLA);
   const combos: Combo[] = [];
@@ -314,6 +336,14 @@ export function generar(): Dataset {
         ? validas.reduce((a, b) => a + b, 0) / validas.length
         : 0;
 
+      // El año pasado. El crecimiento tiene dos capas: una deriva propia de
+      // la colección y el ruido de cada tienda. Así hay colecciones que caen
+      // completas y otras que vuelan, que es como se comporta el negocio de
+      // verdad: un promedio nacional sano esconde la colección que se está
+      // muriendo, y esa es justamente la lectura que importa.
+      const crecimiento = derivaColeccion(col.id) * (0.88 + rnd() * 0.3);
+      const soAnt = suc.apertura > 0 ? 0 : so / crecimiento;
+
       // Inventario: semanas de cobertura objetivo por cadena, con dispersión
       const objetivoSemanas = cad.umbralCadena * (0.6 + rnd() * 0.95);
       let inv = Math.round(so * objetivoSemanas);
@@ -330,6 +360,7 @@ export function generar(): Dataset {
         inv,
         tr,
         so,
+        soAnt,
         hist,
         edad,
         cob: 0,
@@ -564,9 +595,13 @@ export type Filtro = {
   estado?: string;
   ciudad?: string;
   cadena?: string;
+  /** Id de la marca: una casa vende varias y se negocian por separado. */
+  marca?: string;
   coleccion?: string;
   /** SKU del modelo. */
   modelo?: string;
+  genero?: string;
+  material?: string;
   umbral: number;
 };
 
@@ -575,15 +610,20 @@ export function filtrar(combos: Combo[], f: Filtro): Combo[] {
     if (f.estado && c.sucursal.estadoId !== f.estado) return false;
     if (f.ciudad && c.sucursal.ciudad !== f.ciudad) return false;
     if (f.cadena && c.sucursal.cadenaId !== f.cadena) return false;
+    if (f.marca && c.coleccion.marcaId !== f.marca) return false;
     if (f.coleccion && c.coleccion.id !== f.coleccion) return false;
     if (f.modelo && c.modelo.sku !== f.modelo) return false;
+    if (f.genero && c.modelo.genero !== f.genero) return false;
+    if (f.material && c.modelo.material !== f.material) return false;
     return true;
   });
 }
 
 /** Cuántos filtros hay puestos, sin contar el umbral. */
 export const filtrosActivos = (f: Filtro) =>
-  [f.estado, f.ciudad, f.cadena, f.coleccion, f.modelo].filter(Boolean).length;
+  [f.estado, f.ciudad, f.cadena, f.marca, f.coleccion, f.modelo, f.genero, f.material].filter(
+    Boolean
+  ).length;
 
 export type ResumenEstado = {
   estado: Estado;

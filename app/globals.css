@@ -274,13 +274,54 @@ textarea {
 .rail .wordmark .bi {
   color: #6ea8ff;
 }
+/* Cada grupo del menú vive en su propio cuadro, con su color. Son tres
+   conversaciones distintas --la semana, el año y lo que la máquina opina-- y
+   conviene que se vea dónde termina una y empieza la otra. */
+.rail .bloque {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 11px;
+  padding: 4px 8px 8px;
+  margin-bottom: 10px;
+}
 .rail .grp {
   font-size: 9.5px;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: var(--chrome-ink-2);
   font-weight: 700;
-  padding: 16px 10px 6px;
+  padding: 9px 2px 7px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--grp-ink, var(--chrome-ink-2));
+}
+/* El punto repite el color del rótulo: a 9.5 px el color solo no alcanza. */
+.rail .grp::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: currentColor;
+  flex: none;
+}
+.rail .bloque[data-tono="ejecucion"] {
+  --grp-ink: #f0a04b;
+}
+.rail .bloque[data-tono="analisis"] {
+  --grp-ink: #6ea8ff;
+}
+.rail .bloque[data-tono="sistema"] {
+  --grp-ink: #8fa3b8;
+}
+.rail .bloque[data-tono="planeacion"] {
+  --grp-ink: #49c6b6;
+}
+.rail .bloque[data-tono="inteligencia"] {
+  --grp-ink: #a78ae8;
+}
+.rail .bloque a.nav {
+  padding-left: 8px;
+  padding-right: 8px;
 }
 .rail a.nav {
   display: flex;
@@ -306,7 +347,7 @@ textarea {
 .rail a.nav[aria-current="page"]::before {
   content: "";
   position: absolute;
-  left: -12px;
+  left: -8px;
   top: 7px;
   bottom: 7px;
   width: 3px;
@@ -1313,4 +1354,397 @@ hr.sep {
   .panel {
     display: none;
   }
+}
+
+/* Segunda fila de filtros, la de los niveles finos. */
+.topbar.fina {
+  padding-top: 0;
+  border-top: 0;
+  background: var(--surface-2);
+  gap: 10px;
+}
+
+/* ===========================================================================
+   Reportes: plantillas, panel de campos y tabla dinámica
+   =========================================================================== */
+
+.plantillas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.plantilla {
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: border-color 0.12s, background 0.12s;
+}
+.plantilla:hover {
+  border-color: var(--accent);
+}
+.plantilla.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.plantilla strong {
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+.plantilla span {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  line-height: 1.4;
+}
+
+.campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+  margin-top: 14px;
+}
+.campos-tit {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.campos .sel {
+  width: 100%;
+}
+.campos .sel select {
+  width: 100%;
+}
+.medidas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.medidas .btn {
+  font-size: 11.5px;
+}
+
+table.pivote {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+table.pivote th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 700;
+  text-align: right;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--hair);
+  white-space: nowrap;
+  z-index: 2;
+}
+table.pivote th.name,
+table.pivote td.name {
+  text-align: left;
+}
+table.pivote th.grupo {
+  text-align: center;
+  background: var(--surface-3);
+  border-left: 1px solid var(--hair);
+}
+table.pivote td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--hair);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+table.pivote td.name {
+  color: var(--ink);
+  white-space: normal;
+  min-width: 220px;
+}
+table.pivote tr.n0 td {
+  font-weight: 600;
+  background: var(--surface-2);
+}
+table.pivote tr.n1 td.name {
+  color: var(--ink-2);
+}
+table.pivote tr.n2 td {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+table.pivote tr.gran td {
+  background: var(--chrome);
+  color: var(--chrome-ink);
+  font-weight: 700;
+  border-bottom: 0;
+  position: sticky;
+  bottom: 0;
+}
+.plegar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-right: 7px;
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: -2px;
+}
+.plegar.vacio {
+  border-color: transparent;
+  background: transparent;
+  cursor: default;
+}
+
+/* Top 10 de modelos del Resumen. Una barra basta: el treemap se ve bonito
+   y se lee mal, sobre todo cuando los nombres son largos. */
+.top10 {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+.t10 {
+  display: grid;
+  grid-template-columns: 26px minmax(180px, 1.5fr) minmax(90px, 2fr) 92px 64px 72px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hair);
+  font-size: 12.5px;
+}
+.t10:last-child {
+  border-bottom: 0;
+}
+.t10-pos {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  text-align: right;
+  font-weight: 700;
+}
+.t10-nom strong {
+  display: block;
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.t10-nom span {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.t10-barra {
+  height: 9px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.t10-barra span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--s1));
+  border-radius: 999px;
+}
+.t10 .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.t10-val {
+  color: var(--ink);
+  font-weight: 600;
+}
+.t10-part {
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+.t10-var {
+  font-weight: 600;
+  font-size: 11.5px;
+}
+@media (max-width: 760px) {
+  .t10 {
+    grid-template-columns: 22px 1fr 76px 62px;
+  }
+  .t10-barra,
+  .t10-part {
+    display: none;
+  }
+}
+
+/* ===========================================================================
+   Centro de ayuda
+   =========================================================================== */
+
+.ayuda {
+  display: grid;
+  grid-template-columns: minmax(0, 1.9fr) minmax(260px, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 980px) {
+  .ayuda {
+    grid-template-columns: 1fr;
+  }
+}
+
+.buscar {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+.buscar input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 14px;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+}
+.buscar input:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.respuesta {
+  margin: 4px 0 14px;
+  padding: 13px 15px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--hair));
+  border-radius: 10px;
+}
+.respuesta-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.respuesta-top strong {
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.respuesta p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+}
+
+.guias {
+  margin-top: 6px;
+  border-top: 1px solid var(--hair);
+}
+.guia {
+  border-bottom: 1px solid var(--hair);
+}
+.guia-tit {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 2px;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+.guia-tit > span:first-child {
+  flex: 1;
+}
+.guia-tit strong {
+  display: block;
+  font-size: 13.5px;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.guia-tit span span,
+.guia-tit > span:first-child > span {
+  font-size: 12px;
+  color: var(--ink-3);
+  line-height: 1.45;
+}
+.guia-mas {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.guia-cuerpo {
+  padding: 0 2px 16px;
+}
+.guia-cuerpo ol {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+.guia-cuerpo li {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  margin-bottom: 7px;
+}
+
+.novedades {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+.novedad {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--hair);
+}
+.novedad:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.novedad-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.novedad strong {
+  display: block;
+  font-size: 12.8px;
+  color: var(--ink);
+  margin-bottom: 3px;
+  line-height: 1.35;
+}
+.novedad p {
+  margin: 0;
+  font-size: 11.8px;
+  line-height: 1.5;
+  color: var(--ink-3);
 }

@@ -24,6 +24,43 @@ export default function Resumen() {
   const indice = ind.sellIn > 0 ? (ind.sellOut / ind.sellIn) * 100 : 0;
   const brecha = ind.sellIn - ind.sellOut;
 
+  /* Los diez modelos que más venden en el alcance. Se agrupa por SKU porque
+     es el nivel al que se embarca: una colección puede verse bien mientras
+     una de sus referencias se cae sola. */
+  const top10 = useMemo(() => {
+    const m = new Map<
+      string,
+      { sku: string; nombre: string; coleccion: string; venta: number; ant: number }
+    >();
+    let total = 0;
+    for (const c of vista) {
+      const v = c.so * PARAMS.ventana * c.precio;
+      const a = c.soAnt * PARAMS.ventana * c.precio;
+      total += v;
+      const prev = m.get(c.modelo.sku);
+      if (prev) {
+        prev.venta += v;
+        prev.ant += a;
+      } else {
+        m.set(c.modelo.sku, {
+          sku: c.modelo.sku,
+          nombre: c.modelo.nombre,
+          coleccion: c.coleccion.nombre,
+          venta: v,
+          ant: a,
+        });
+      }
+    }
+    return [...m.values()]
+      .sort((a, b) => b.venta - a.venta)
+      .slice(0, 10)
+      .map((t) => ({
+        ...t,
+        part: total > 0 ? (t.venta / total) * 100 : 0,
+        varPct: t.ant > 0 ? ((t.venta - t.ant) / t.ant) * 100 : 0,
+      }));
+  }, [vista]);
+
   const serie = useMemo(() => {
     const prop = data.combos.length ? vista.length / data.combos.length : 1;
     return data.serie.map((s) => ({
@@ -178,6 +215,45 @@ export default function Resumen() {
             anchoEtiqueta={168}
           />
         </div>
+      </div>
+
+      <div className="card">
+        <h3>Top 10 de modelos</h3>
+        <p className="sub">
+          Los diez que más venden en el alcance, con lo que pesan sobre el total y
+          cómo vienen contra el año pasado. El ancho de la barra es la participación.
+        </p>
+        <div className="top10">
+          {top10.map((t, i) => (
+            <div className="t10" key={t.sku}>
+              <span className="t10-pos">{i + 1}</span>
+              <span className="t10-nom">
+                <strong>{t.nombre}</strong>
+                <span>
+                  {t.sku} · {t.coleccion}
+                </span>
+              </span>
+              <span className="t10-barra">
+                <span style={{ width: `${(t.venta / top10[0].venta) * 100}%` }} />
+              </span>
+              <span className="t10-val num">{moneyCorto(t.venta)}</span>
+              <span className="t10-part num">{fmt(t.part, 1)}%</span>
+              <span
+                className="t10-var num"
+                style={{
+                  color: t.varPct >= 0 ? "var(--good-ink)" : "var(--crit-ink)",
+                }}
+              >
+                {t.varPct >= 0 ? "+" : "−"}
+                {fmt(Math.abs(t.varPct), 1)}%
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="note">
+          La participación se calcula sobre la venta del alcance filtrado, no sobre el
+          total nacional. Con un estado o una cadena puesta, los diez cambian.
+        </p>
       </div>
 
       <div className="cols-2">

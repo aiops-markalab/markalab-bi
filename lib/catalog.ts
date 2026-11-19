@@ -58,9 +58,37 @@ export const CADENAS: Cadena[] = [
   },
 ];
 
+/**
+ * La marca. Un grupo relojero vende varias marcas por el mismo canal y el
+ * comprador de Liverpool negocia por marca, no por colección: es el primer
+ * nivel al que hay que poder cortar.
+ */
+export type Marca = {
+  id: string;
+  nombre: string;
+  nota: string;
+};
+
+export const MARCAS: Marca[] = [
+  {
+    id: "CIT",
+    nombre: "Citizen",
+    nota: "La marca principal. Ocho colecciones, de acceso a alta gama, presente en las cuatro cadenas.",
+  },
+  {
+    id: "BUL",
+    nombre: "Bulova",
+    nota: "La segunda marca del grupo. Dos colecciones de precio medio, más fuerte en Sears y Sanborns.",
+  },
+];
+
+export const marcaPorId = (id: string) =>
+  MARCAS.find((m) => m.id === id) ?? MARCAS[0];
+
 export type Coleccion = {
   id: string;
   nombre: string;
+  marcaId: string;
   segmento: "Acceso" | "Medio" | "Premium" | "Alta gama";
   linea: "Caballero" | "Dama" | "Unisex";
   /** Precio de lista promedio en pesos. */
@@ -78,6 +106,7 @@ export const COLECCIONES: Coleccion[] = [
   {
     id: "TSU",
     nombre: "Tsuyosa",
+    marcaId: "CIT",
     segmento: "Medio",
     linea: "Unisex",
     precio: 7490,
@@ -89,6 +118,7 @@ export const COLECCIONES: Coleccion[] = [
   {
     id: "ECO",
     nombre: "Eco-Drive",
+    marcaId: "CIT",
     segmento: "Acceso",
     linea: "Unisex",
     precio: 5290,
@@ -100,6 +130,7 @@ export const COLECCIONES: Coleccion[] = [
   {
     id: "PRO",
     nombre: "Promaster",
+    marcaId: "CIT",
     segmento: "Premium",
     linea: "Caballero",
     precio: 14900,
@@ -111,6 +142,7 @@ export const COLECCIONES: Coleccion[] = [
   {
     id: "S8",
     nombre: "Series 8",
+    marcaId: "CIT",
     segmento: "Alta gama",
     linea: "Caballero",
     precio: 27500,
@@ -122,6 +154,7 @@ export const COLECCIONES: Coleccion[] = [
   {
     id: "ATT",
     nombre: "Attesa",
+    marcaId: "CIT",
     segmento: "Alta gama",
     linea: "Caballero",
     precio: 32400,
@@ -133,6 +166,7 @@ export const COLECCIONES: Coleccion[] = [
   {
     id: "CTL",
     nombre: "Citizen L",
+    marcaId: "CIT",
     segmento: "Premium",
     linea: "Dama",
     precio: 11800,
@@ -144,6 +178,7 @@ export const COLECCIONES: Coleccion[] = [
   {
     id: "COR",
     nombre: "Corso",
+    marcaId: "BUL",
     segmento: "Medio",
     linea: "Caballero",
     precio: 8900,
@@ -155,6 +190,7 @@ export const COLECCIONES: Coleccion[] = [
   {
     id: "AXI",
     nombre: "Axiom",
+    marcaId: "BUL",
     segmento: "Medio",
     linea: "Unisex",
     precio: 6900,
@@ -166,6 +202,7 @@ export const COLECCIONES: Coleccion[] = [
   {
     id: "SAT",
     nombre: "Satellite Wave",
+    marcaId: "CIT",
     segmento: "Alta gama",
     linea: "Caballero",
     precio: 41900,
@@ -177,6 +214,7 @@ export const COLECCIONES: Coleccion[] = [
   {
     id: "TCZ",
     nombre: "The Citizen",
+    marcaId: "CIT",
     segmento: "Alta gama",
     linea: "Caballero",
     precio: 68000,
@@ -198,65 +236,92 @@ export const COLECCIONES: Coleccion[] = [
  * Los indicadores se pueden leer en cualquiera de los tres niveles, y las
  * alertas se calculan siempre al más fino: tienda x modelo.
  */
+export type Genero = "Hombre" | "Mujer" | "Unisex";
+export type Material =
+  | "Acero"
+  | "Acero dorado"
+  | "Bicolor"
+  | "Titanio"
+  | "Piel"
+  | "Nácar";
+
+export const GENEROS: Genero[] = ["Hombre", "Mujer", "Unisex"];
+export const MATERIALES: Material[] = [
+  "Acero",
+  "Acero dorado",
+  "Bicolor",
+  "Titanio",
+  "Piel",
+  "Nácar",
+];
+
 export type Modelo = {
   sku: string;
   nombre: string;
   coleccionId: string;
+  /** Para quién se vende. El comprador de la cadena compra por género. */
+  genero: Genero;
+  /** De qué está hecho. Decide el precio y el anaquel donde se exhibe. */
+  material: Material;
   /** Multiplicador de precio sobre el precio base de su colección. */
   precioRel: number;
   /** Peso dentro de la colección: cuánto del volumen se lleva este modelo. */
   peso: number;
 };
 
-/** [coleccionId, sufijo, nombre, precioRel, peso] */
-const MODELOS_SEMILLA: [string, string, string, number, number][] = [
-  ["TSU", "1525", "Tsuyosa Acero Azul 40mm", 1.0, 0.34],
-  ["TSU", "1402", "Tsuyosa Acero Verde 40mm", 1.0, 0.27],
-  ["TSU", "1760", "Tsuyosa Bicolor Champaña 40mm", 1.18, 0.22],
-  ["TSU", "1883", "Tsuyosa Acero Negro 37mm", 0.96, 0.17],
+/** [coleccionId, sufijo, nombre, precioRel, peso, genero, material] */
+const MODELOS_SEMILLA: [
+  string, string, string, number, number, Genero, Material
+][] = [
+  ["TSU", "1525", "Tsuyosa Acero Azul 40mm", 1.0, 0.34, "Unisex", "Acero"],
+  ["TSU", "1402", "Tsuyosa Acero Verde 40mm", 1.0, 0.27, "Unisex", "Acero"],
+  ["TSU", "1760", "Tsuyosa Bicolor Champaña 40mm", 1.18, 0.22, "Unisex", "Bicolor"],
+  ["TSU", "1883", "Tsuyosa Acero Negro 37mm", 0.96, 0.17, "Unisex", "Acero"],
 
-  ["ECO", "1312", "Eco-Drive Piel Negra 42mm", 0.94, 0.3],
-  ["ECO", "1248", "Eco-Drive Acero 41mm", 1.0, 0.28],
-  ["ECO", "1868", "Eco-Drive Acero Dorado 40mm", 1.12, 0.23],
-  ["ECO", "1091", "Eco-Drive Piel Café 44mm", 0.9, 0.19],
+  ["ECO", "1312", "Eco-Drive Piel Negra 42mm", 0.94, 0.3, "Hombre", "Piel"],
+  ["ECO", "1248", "Eco-Drive Acero 41mm", 1.0, 0.28, "Unisex", "Acero"],
+  ["ECO", "1868", "Eco-Drive Acero Dorado 40mm", 1.12, 0.23, "Unisex", "Acero dorado"],
+  ["ECO", "1091", "Eco-Drive Piel Café 44mm", 0.9, 0.19, "Hombre", "Piel"],
 
-  ["PRO", "1476", "Promaster Diver 200m", 1.0, 0.38],
-  ["PRO", "1200", "Promaster Sky Titanio", 1.24, 0.33],
-  ["PRO", "1560", "Promaster Land Piel 44mm", 0.88, 0.29],
+  ["PRO", "1476", "Promaster Diver 200m", 1.0, 0.38, "Hombre", "Acero"],
+  ["PRO", "1200", "Promaster Sky Titanio", 1.24, 0.33, "Hombre", "Titanio"],
+  ["PRO", "1560", "Promaster Land Piel 44mm", 0.88, 0.29, "Hombre", "Piel"],
 
-  ["S8", "1731", "Series 8 Mecánico 831", 1.0, 0.41],
-  ["S8", "1944", "Series 8 Acero Azul 870", 1.12, 0.33],
-  ["S8", "1605", "Series 8 Titanio 880", 1.3, 0.26],
+  ["S8", "1731", "Series 8 Mecánico 831", 1.0, 0.41, "Hombre", "Acero"],
+  ["S8", "1944", "Series 8 Acero Azul 870", 1.12, 0.33, "Hombre", "Acero"],
+  ["S8", "1605", "Series 8 Titanio 880", 1.3, 0.26, "Hombre", "Titanio"],
 
-  ["ATT", "1328", "Attesa Titanio Radiocontrol", 1.0, 0.44],
-  ["ATT", "1917", "Attesa Cronógrafo Negro", 1.09, 0.31],
-  ["ATT", "1452", "Attesa Acttline Bicolor", 1.21, 0.25],
+  ["ATT", "1328", "Attesa Titanio Radiocontrol", 1.0, 0.44, "Hombre", "Titanio"],
+  ["ATT", "1917", "Attesa Cronógrafo Negro", 1.09, 0.31, "Hombre", "Acero"],
+  ["ATT", "1452", "Attesa Acttline Bicolor", 1.21, 0.25, "Hombre", "Bicolor"],
 
-  ["CTL", "1183", "Citizen L Ambiluna Nácar", 1.0, 0.36],
-  ["CTL", "1620", "Citizen L Eco Dorado 29mm", 1.14, 0.28],
-  ["CTL", "1055", "Citizen L Sunrise Acero", 0.92, 0.21],
-  ["CTL", "1799", "Citizen L Diamond 30mm", 1.42, 0.15],
+  ["CTL", "1183", "Citizen L Ambiluna Nácar", 1.0, 0.36, "Mujer", "Nácar"],
+  ["CTL", "1620", "Citizen L Eco Dorado 29mm", 1.14, 0.28, "Mujer", "Acero dorado"],
+  ["CTL", "1055", "Citizen L Sunrise Acero", 0.92, 0.21, "Mujer", "Acero"],
+  ["CTL", "1799", "Citizen L Diamond 30mm", 1.42, 0.15, "Mujer", "Acero"],
 
-  ["COR", "1518", "Corso Acero 41mm", 1.0, 0.39],
-  ["COR", "1341", "Corso Piel Negra 40mm", 0.93, 0.34],
-  ["COR", "1207", "Corso Bicolor 42mm", 1.15, 0.27],
+  ["COR", "1518", "Corso Acero 41mm", 1.0, 0.39, "Unisex", "Acero"],
+  ["COR", "1341", "Corso Piel Negra 40mm", 0.93, 0.34, "Hombre", "Piel"],
+  ["COR", "1207", "Corso Bicolor 42mm", 1.15, 0.27, "Unisex", "Bicolor"],
 
-  ["AXI", "1581", "Axiom Acero Ultradelgado", 1.0, 0.4],
-  ["AXI", "1928", "Axiom Piel Negra 40mm", 0.95, 0.33],
-  ["AXI", "1274", "Axiom Bicolor 38mm", 1.11, 0.27],
+  ["AXI", "1581", "Axiom Acero Ultradelgado", 1.0, 0.4, "Unisex", "Acero"],
+  ["AXI", "1928", "Axiom Piel Negra 40mm", 0.95, 0.33, "Hombre", "Piel"],
+  ["AXI", "1274", "Axiom Bicolor 38mm", 1.11, 0.27, "Mujer", "Bicolor"],
 
-  ["SAT", "1130", "Satellite Wave GPS F990", 1.0, 0.55],
-  ["SAT", "1467", "Satellite Wave Titanio F950", 0.89, 0.45],
+  ["SAT", "1130", "Satellite Wave GPS F990", 1.0, 0.55, "Hombre", "Acero"],
+  ["SAT", "1467", "Satellite Wave Titanio F950", 0.89, 0.45, "Hombre", "Titanio"],
 
-  ["TCZ", "1001", "The Citizen Caliber 0100", 1.0, 0.58],
-  ["TCZ", "1288", "The Citizen Urushi Dial", 0.84, 0.42],
+  ["TCZ", "1001", "The Citizen Caliber 0100", 1.0, 0.58, "Hombre", "Titanio"],
+  ["TCZ", "1288", "The Citizen Urushi Dial", 0.84, 0.42, "Hombre", "Acero"],
 ];
 
 export const MODELOS: Modelo[] = MODELOS_SEMILLA.map(
-  ([coleccionId, sufijo, nombre, precioRel, peso]) => ({
+  ([coleccionId, sufijo, nombre, precioRel, peso, genero, material]) => ({
     sku: `CTZ-${coleccionId.slice(0, 2)}${sufijo}`,
     nombre,
     coleccionId,
+    genero,
+    material,
     precioRel,
     peso,
   })
