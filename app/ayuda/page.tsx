@@ -54,11 +54,11 @@ export default function Ayuda() {
         setRespuesta(d.respuesta);
       } else {
         setFuente("local");
-        setRespuesta(resumenDeterminista(hallazgos, ind));
+        setRespuesta(resumenDeterminista(hallazgos, ind, q));
       }
     } catch {
       setFuente("local");
-      setRespuesta(resumenDeterminista(hallazgos, ind));
+      setRespuesta(resumenDeterminista(hallazgos, ind, q));
     } finally {
       setCargando(false);
     }

@@ -97,7 +97,7 @@ export function CopilotoFlotante() {
         ...t,
         {
           de: "agente",
-          texto: desdeN8n ? d.respuesta : resumenDeterminista(hallazgos, ind),
+          texto: desdeN8n ? d.respuesta : resumenDeterminista(hallazgos, ind, pregunta),
           fuente: desdeN8n ? "n8n" : "local",
           ms: d.ms ?? 0,
         },
@@ -105,7 +105,7 @@ export function CopilotoFlotante() {
     } catch {
       setTurnos((t) => [
         ...t,
-        { de: "agente", texto: resumenDeterminista(hallazgos, ind), fuente: "local", ms: 0 },
+        { de: "agente", texto: resumenDeterminista(hallazgos, ind, pregunta), fuente: "local", ms: 0 },
       ]);
     } finally {
       setCargando(false);

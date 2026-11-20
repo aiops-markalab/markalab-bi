@@ -479,5 +479,5 @@ function responderLocal(
     );
   }
 
-  return resumenDeterminista(hallazgos, ind);
+  return resumenDeterminista(hallazgos, ind, pregunta);
 }
