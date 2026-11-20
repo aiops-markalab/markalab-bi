@@ -281,9 +281,16 @@ function surtido(suc: Sucursal, rnd: () => number): { col: Coleccion; mod: Model
 }
 
 /**
- * Cuánto creció cada colección contra el año pasado. Determinista por id,
- * así que la misma colección crece lo mismo en cada apertura de la demo.
- * Rango: de -24% a +42%.
+ * Cuánto creció cada colección contra el año pasado.
+ *
+ * El rango es el del canal departamental de verdad, no el de una
+ * presentación: la categoría crece alrededor de tres puntos al año y lo que
+ * se mueve es el mix. Una colección puede caer ocho puntos mientras otra
+ * sube catorce, y el agregado apenas se despega del tres por ciento. Un BI
+ * que pinta crecimientos de veinte puntos no se le cree a un director que
+ * lleva quince años en el ramo.
+ *
+ * Determinista por id: la misma colección crece lo mismo en cada apertura.
  */
 const DERIVAS = new Map<string, number>();
 function derivaColeccion(id: string): number {
@@ -291,12 +298,13 @@ function derivaColeccion(id: string): number {
   if (hay !== undefined) return hay;
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  const v = 0.76 + (mulberry32(SEMILLA + h)() * 0.66);
+  const v = 0.9 + mulberry32(SEMILLA + h)() * 0.22;
   DERIVAS.set(id, v);
   return v;
 }
 
 export function generar(): Dataset {
+  const factorAnual = new Map<string, number>();
   const rnd = mulberry32(SEMILLA);
   const combos: Combo[] = [];
 
@@ -341,8 +349,9 @@ export function generar(): Dataset {
       // completas y otras que vuelan, que es como se comporta el negocio de
       // verdad: un promedio nacional sano esconde la colección que se está
       // muriendo, y esa es justamente la lectura que importa.
-      const crecimiento = derivaColeccion(col.id) * (0.88 + rnd() * 0.3);
-      const soAnt = suc.apertura > 0 ? 0 : so / crecimiento;
+      const crecimiento = derivaColeccion(col.id) * (0.85 + rnd() * 0.3);
+      factorAnual.set(`${suc.clave}|${mod.sku}`, suc.apertura > 0 ? 0 : crecimiento);
+      const soAnt = 0; // se calcula abajo, cuando las situaciones ya se aplicaron
 
       // Inventario: semanas de cobertura objetivo por cadena, con dispersión
       const objetivoSemanas = cad.umbralCadena * (0.6 + rnd() * 0.95);
@@ -376,6 +385,16 @@ export function generar(): Dataset {
   }
 
   aplicarSituaciones(combos, mulberry32(SEMILLA + 7));
+
+  /* El año anterior se calcula hasta aquí, después de las situaciones. Si se
+     calculara antes, una tienda a la que la situación le mueve el inventario
+     o el desplazamiento saldría creciendo cincuenta puntos contra sí misma,
+     que es ruido, no crecimiento. El crecimiento lo decide la colección. */
+  for (const c of combos) {
+    const f = factorAnual.get(c.id) ?? 0;
+    c.soAnt = f > 0 ? c.so / f : 0;
+  }
+
   for (const c of combos) derivar(c);
 
   return {
