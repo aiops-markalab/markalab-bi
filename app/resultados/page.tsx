@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useBI } from "@/lib/store";
 import { Tile } from "@/components/ui";
 import { fmt, moneyCorto, pct } from "@/lib/engine";
-import { proyectar, estadoResultados } from "@/lib/plan";
+import { proyectar, estadoResultados, CAMPOS_SUPUESTO } from "@/lib/plan";
+import { Descarga, useBase } from "@/components/descarga";
+import { libroEscenario } from "@/lib/libros";
 
 export default function Resultados() {
   const { vista, ind, escenarios, escenarioId, setEscenarioId } = useBI();
+  const base = useBase();
   const activo = escenarios.find((e) => e.id === escenarioId) ?? escenarios[0];
   const plan = escenarios.find((e) => e.id === "plan")!;
 
@@ -232,6 +235,11 @@ export default function Resultados() {
           </div>
         </div>
       </div>
+      <Descarga
+        titulo="El estado de resultados en Excel"
+        contenido="El modelo del plan completo en fórmulas: los diez supuestos son celdas vivas y recalculan el P&L por trimestre, el EBITDA y la comparación contra los demás escenarios."
+        armar={() => libroEscenario(base, activo, escenarios)}
+      />
     </div>
   );
 }

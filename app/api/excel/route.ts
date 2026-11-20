@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
+import MANIFIESTO from "@/lib/plantillas.json";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,43 +10,55 @@ export const dynamic = "force-dynamic";
 /**
  * Los Excel de la plataforma.
  *
- * Un navegador no puede escribir gráficas nativas de Excel: ninguna librería
- * de JavaScript del lado del cliente sabe hacerlo. Lo que sí se puede es
- * tomar un archivo que YA trae sus gráficas, sus fórmulas y su formato, y
- * reemplazarle las hojas de datos.
+ * Un navegador no puede escribir gráficas nativas de Excel. Lo que sí se
+ * puede es tomar un archivo que YA trae sus gráficas, sus fórmulas y su
+ * formato, y rellenarlo. Eso hace esta ruta: abre la plantilla como lo que
+ * es --un zip--, cambia lo que la plataforma manda y lo vuelve a cerrar.
  *
- * Eso hace este endpoint. Abre la plantilla como lo que es --un zip--, cambia
- * únicamente las hojas que se le piden, y vuelve a cerrarlo. Las gráficas, las
- * fórmulas y los formatos sobreviven porque nunca se tocan.
+ * Lo que la plataforma puede mandar:
  *
- * Las hojas se buscan por NOMBRE, no por número de archivo: una plantilla con
- * cinco hojas no tiene por qué tener la de datos en el primer lugar, y
- * amarrarse al orden es la clase de detalle que se rompe el día que alguien
- * reordene las pestañas.
+ *   hojas        renglones para una hoja, por nombre. Si la plantilla trae
+ *                una FÓRMULA en una celda de ese renglón, la fórmula se queda
+ *                y el valor que manda la plataforma entra como su resultado
+ *                guardado. Así el archivo se ve completo aun en la Vista
+ *                protegida de Excel, donde nada se recalcula, y en cuanto se
+ *                habilita la edición mandan las fórmulas.
+ *
+ *   valores      indicadores sueltos, por nombre. El manifiesto de la
+ *                plantilla dice en qué celda vive cada uno.
+ *
+ *   encabezados  títulos de columna, para las hojas cuya forma no es fija.
+ *
+ * El manifiesto (lib/plantillas.json) lo genera el mismo script que construye
+ * las plantillas: las direcciones de celda nunca se escriben a mano aquí.
  */
 
-const PLANTILLAS: Record<string, { archivo: string; nombre: string }> = {
-  corte: { archivo: "simulador.xlsx", nombre: "MarkaLab_BI_Simulador" },
-  resumen: { archivo: "resumen.xlsx", nombre: "MarkaLab_BI_Resumen" },
-  escenario: { archivo: "escenario.xlsx", nombre: "MarkaLab_BI_Escenario" },
-  reporte: { archivo: "reporte.xlsx", nombre: "MarkaLab_BI_Reporte" },
+type Celda = string | number | null;
+type OpcionHoja = { sobrantes?: string; recorte?: number };
+type Entrada = { archivo: string; celdas: Record<string, string[]>; hojas: Record<string, OpcionHoja> };
+
+const LIBROS = MANIFIESTO as unknown as Record<string, Entrada>;
+
+/** El nombre con el que se baja cada libro. */
+const NOMBRES: Record<string, string> = {
+  resumen: "MarkaLab_BI_Resumen",
+  mapa: "MarkaLab_BI_Mapa",
+  ejecucion: "MarkaLab_BI_Que_atender",
+  detalle: "MarkaLab_BI_Detalle",
+  reporte: "MarkaLab_BI_Reporte",
+  corte: "MarkaLab_BI_Simulador",
+  escenario: "MarkaLab_BI_Escenario",
+  hallazgos: "MarkaLab_BI_Hallazgos",
+  salud: "MarkaLab_BI_Salud_del_dato",
 };
 
 const TOPE = 5000;
 
-type Celda = string | number | null;
 type Peticion = {
   plantilla?: string;
-  /** Hoja por nombre, con sus renglones de datos. El encabezado no se manda. */
   hojas?: Record<string, Celda[][]>;
-  /**
-   * Encabezados por hoja, para las plantillas cuyas columnas no son fijas.
-   * La tabla de Reportes cambia de forma según cómo la configure el usuario,
-   * así que sus títulos tampoco se pueden dejar escritos en la plantilla.
-   * Lo que sí se conserva es el ESTILO del renglón 1, que se lee del propio
-   * archivo y se vuelve a aplicar celda por celda.
-   */
   encabezados?: Record<string, string[]>;
+  valores?: Record<string, Celda>;
   sufijo?: string;
 };
 
@@ -66,6 +79,12 @@ function letra(n: number): string {
   return s;
 }
 
+function numero(ref: string): number {
+  let n = 0;
+  for (const ch of ref) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n;
+}
+
 /** El estilo de cada columna, leído del `<cols>` de la propia hoja. */
 function estilosDeColumna(xml: string): Map<number, string> {
   const m = new Map<number, string>();
@@ -82,24 +101,85 @@ function estilosDeColumna(xml: string): Map<number, string> {
   return m;
 }
 
-function renglones(filas: Celda[][], estilos: Map<number, string>): string {
+type DePlantilla = { col: number; xml: string };
+
+/** Las celdas que la plantilla ya trae, renglón por renglón. */
+function celdasDePlantilla(cuerpo: string): Map<number, DePlantilla[]> {
+  const m = new Map<number, DePlantilla[]>();
+  for (const row of cuerpo.matchAll(/<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g)) {
+    const celdas: DePlantilla[] = [];
+    for (const c of row[2].matchAll(/<c\b[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g)) {
+      const ref = c[0].match(/\br="([A-Z]+)\d+"/)?.[1];
+      if (ref) celdas.push({ col: numero(ref), xml: c[0] });
+    }
+    if (celdas.length) m.set(Number(row[1]), celdas);
+  }
+  return m;
+}
+
+/**
+ * Una celda con fórmula y su resultado guardado.
+ *
+ * La fórmula es la de la plantilla; el resultado es el que calculó la
+ * plataforma. Excel enseña el resultado guardado mientras no recalcule --en
+ * la Vista protegida, en la vista previa del correo, en el teléfono-- y al
+ * habilitar la edición lo sustituye por el suyo, que tiene que ser el mismo.
+ */
+function conResultado(plantilla: string, v: Celda): string {
+  const f = plantilla.match(/<f\b[^>]*>[\s\S]*?<\/f>/)?.[0];
+  if (!f) return plantilla;
+  const r = plantilla.match(/\br="([A-Z]+\d+)"/)?.[1] ?? "";
+  const s = plantilla.match(/\bs="(\d+)"/)?.[1];
+  const attr = `r="${r}"${s ? ` s="${s}"` : ""}`;
+  if (v === null || v === undefined || v === "") return `<c ${attr}>${f}</c>`;
+  if (typeof v === "number" && isFinite(v)) return `<c ${attr}>${f}<v>${v}</v></c>`;
+  return `<c ${attr} t="str">${f}<v>${esc(String(v))}</v></c>`;
+}
+
+function celdaSimple(ref: string, estilo: string | undefined, v: Celda): string {
+  const attr = `r="${ref}"${estilo ? ` s="${estilo}"` : ""}`;
+  if (v === null || v === undefined || v === "") return estilo ? `<c ${attr}/>` : "";
+  if (typeof v === "number" && isFinite(v)) return `<c ${attr}><v>${v}</v></c>`;
+  return `<c ${attr} t="inlineStr"><is><t>${esc(String(v))}</t></is></c>`;
+}
+
+function renglones(
+  filas: Celda[][],
+  estilos: Map<number, string>,
+  plantilla: Map<number, DePlantilla[]>,
+  quitarSobrantes: boolean
+): string {
   const partes: string[] = [];
   for (let i = 0; i < filas.length; i++) {
     const r = i + 2; // el 1 son los encabezados
-    const celdas: string[] = [];
     const fila = filas[i] ?? [];
-    for (let j = 0; j < fila.length; j++) {
-      const v = fila[j];
-      if (v === null || v === undefined || v === "") continue;
-      const s = estilos.get(j + 1);
-      const attr = `r="${letra(j + 1)}${r}"${s ? ` s="${s}"` : ""}`;
-      if (typeof v === "number" && isFinite(v)) {
-        celdas.push(`<c ${attr}><v>${v}</v></c>`);
-      } else {
-        celdas.push(`<c ${attr} t="inlineStr"><is><t>${esc(String(v))}</t></is></c>`);
+    const propias = new Map<number, string>();
+    for (const c of plantilla.get(r) ?? []) propias.set(c.col, c.xml);
+
+    const celdas: string[] = [];
+    const ancho = Math.max(fila.length, ...[...propias.keys()]);
+    for (let j = 1; j <= ancho; j++) {
+      const v = j <= fila.length ? fila[j - 1] : null;
+      const propia = propias.get(j);
+      if (propia && propia.includes("<f")) {
+        celdas.push(conResultado(propia, v));
+      } else if (j <= fila.length) {
+        const x = celdaSimple(`${letra(j)}${r}`, estilos.get(j), v);
+        if (x && !(v === null || v === "")) celdas.push(x);
+      } else if (propia) {
+        celdas.push(propia);
       }
     }
     partes.push(`<row r="${r}">${celdas.join("")}</row>`);
+  }
+  if (!quitarSobrantes) {
+    // Las fórmulas que quedaron debajo del último dato se conservan: van
+    // guardadas con IF(A="","") y no estorban.
+    const ultimo = filas.length + 1;
+    for (const [r, celdas] of [...plantilla].sort((a, b) => a[0] - b[0])) {
+      if (r <= ultimo) continue;
+      partes.push(`<row r="${r}">${celdas.map((c) => c.xml).join("")}</row>`);
+    }
   }
   return partes.join("");
 }
@@ -122,14 +202,13 @@ async function mapaDeHojas(zip: JSZip): Promise<Map<string, string>> {
     const rid = hoja[0].match(/r:id="([^"]+)"/)?.[1];
     const destino = rid ? destinos.get(rid) : undefined;
     if (nombre && destino) {
-      m.set(
-        nombre.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">"),
-        `xl/${destino}`
-      );
+      m.set(nombre.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">"), `xl/${destino}`);
     }
   }
   return m;
 }
+
+const paraRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export async function POST(req: NextRequest) {
   let p: Peticion;
@@ -139,31 +218,30 @@ export async function POST(req: NextRequest) {
     return new Response("Petición inválida", { status: 400 });
   }
 
-  const def = PLANTILLAS[p.plantilla ?? "corte"];
-  if (!def) return new Response("Plantilla desconocida", { status: 400 });
+  const clave = p.plantilla ?? "";
+  const libro = LIBROS[clave];
+  if (!libro) return new Response("Plantilla desconocida", { status: 400 });
   const hojas = p.hojas ?? {};
-  if (!Object.keys(hojas).length)
-    return new Response("Sin hojas que rellenar", { status: 400 });
 
   let bytes: Buffer;
   try {
-    bytes = await readFile(
-      path.join(process.cwd(), "public", "plantillas", def.archivo)
-    );
+    bytes = await readFile(path.join(process.cwd(), "public", "plantillas", libro.archivo));
   } catch {
     return new Response("No se encontró la plantilla", { status: 500 });
   }
 
   const zip = await JSZip.loadAsync(bytes);
   const mapa = await mapaDeHojas(zip);
+  const filasPorHoja = new Map<string, number>();
 
+  /* 1 · Las hojas de renglones */
   for (const [nombre, filasCrudas] of Object.entries(hojas)) {
     const ruta = mapa.get(nombre);
-    if (!ruta) continue; // una hoja que la plantilla no tiene no es motivo de error
-    const archivo = zip.file(ruta);
-    if (!archivo) continue;
+    const archivo = ruta ? zip.file(ruta) : null;
+    if (!ruta || !archivo) continue; // una hoja que la plantilla no tiene no es motivo de error
 
     const filas = (Array.isArray(filasCrudas) ? filasCrudas : []).slice(0, TOPE - 1);
+    filasPorHoja.set(nombre, filas.length);
     const xml = await archivo.async("string");
     const i = xml.indexOf("<sheetData>");
     const j = xml.indexOf("</sheetData>");
@@ -177,63 +255,97 @@ export async function POST(req: NextRequest) {
 
     const titulos = p.encabezados?.[nombre];
     if (Array.isArray(titulos) && titulos.length) {
-      // El estilo se toma de la primera celda del renglón 1 de la plantilla:
-      // así el encabezado nuevo se ve igual que el que trae el archivo.
+      // El estilo se toma de la primera celda del renglón 1 de la plantilla.
       const sEnc = encabezado.match(/<c\b[^>]*\bs="(\d+)"/)?.[1];
       const celdas = titulos.map(
-        (t, i) =>
-          `<c r="${letra(i + 1)}1"${sEnc ? ` s="${sEnc}"` : ""} t="inlineStr"><is><t>${esc(
-            String(t)
-          )}</t></is></c>`
+        (t, k) => `<c r="${letra(k + 1)}1"${sEnc ? ` s="${sEnc}"` : ""} t="inlineStr"><is><t>${esc(String(t))}</t></is></c>`
       );
       const attrs = encabezado.match(/<row([^>]*)>/)?.[1] ?? ' r="1"';
       encabezado = `<row${attrs}>${celdas.join("")}</row>`;
     }
 
-    let nuevo = antes + encabezado + renglones(filas, estilos) + despues;
-    const anchoMax = filas.reduce((a, f) => Math.max(a, f?.length ?? 0), 1);
+    const dePlantilla = celdasDePlantilla(cuerpo);
+    dePlantilla.delete(1);
+    const quitar = libro.hojas?.[nombre]?.sobrantes === "quitar";
+
+    let nuevo = antes + encabezado + renglones(filas, estilos, dePlantilla, quitar) + despues;
+
+    let anchoMax = filas.reduce((a, f) => Math.max(a, f?.length ?? 0), 1);
+    let altoMax = filas.length + 1;
+    for (const [r, celdas] of dePlantilla) {
+      if (!quitar) altoMax = Math.max(altoMax, r);
+      for (const c of celdas) anchoMax = Math.max(anchoMax, c.col);
+    }
+    nuevo = nuevo.replace(/<dimension ref="[^"]*"\s*\/>/, `<dimension ref="A1:${letra(anchoMax)}${altoMax}"/>`);
+    // El filtro de la tabla tiene que abarcar los renglones que de verdad hay.
     nuevo = nuevo.replace(
-      /<dimension ref="[^"]*"\s*\/>/,
-      `<dimension ref="A1:${letra(anchoMax)}${filas.length + 1}"/>`
+      /<autoFilter ref="A1:([A-Z]+)\d+"/,
+      (_m, col) => `<autoFilter ref="A1:${col}${Math.max(2, filas.length + 1)}"`
     );
     zip.file(ruta, nuevo);
   }
 
-  /* La gráfica del reporte apunta a un rango fijo de veinte renglones, porque
-     una gráfica no puede referirse a un rango de tamaño desconocido. Cuando
-     el reporte trae menos --cuatro cadenas, por ejemplo-- esos renglones de
-     más quedan como categorías vacías y las barras se amontonan abajo del
-     dibujo. Se recorta el rango al número de renglones que de verdad hubo.
+  /* 2 · Los indicadores sueltos, por nombre */
+  const porHoja = new Map<string, [string, Celda][]>();
+  for (const [nombre, v] of Object.entries(p.valores ?? {})) {
+    const destino = libro.celdas?.[nombre];
+    if (!destino) continue;
+    if (!porHoja.has(destino[0])) porHoja.set(destino[0], []);
+    porHoja.get(destino[0])!.push([destino[1], v]);
+  }
+  for (const [hoja, lista] of porHoja) {
+    const ruta = mapa.get(hoja);
+    const archivo = ruta ? zip.file(ruta) : null;
+    if (!ruta || !archivo) continue;
+    let xml = await archivo.async("string");
+    for (const [ref, v] of lista) {
+      const re = new RegExp(`<c\\b[^>]*\\br="${ref}"[^>]*?(?:/>|>[\\s\\S]*?</c>)`);
+      const actual = xml.match(re)?.[0];
+      if (!actual) continue;
+      const estilo = actual.match(/\bs="(\d+)"/)?.[1];
+      xml = xml.replace(re, actual.includes("<f") ? conResultado(actual, v) : celdaSimple(ref, estilo, v) || actual);
+    }
+    zip.file(ruta, xml);
+  }
 
-     Solo se hace en esta plantilla: las otras tres traen gráficas sobre
-     tablas de tamaño conocido y ahí tocar el rango sería romperlas. */
-  const grafica = hojas["Gráfica"];
-  if (p.plantilla === "reporte" && Array.isArray(grafica)) {
-    const hasta = Math.max(2, Math.min(grafica.length, 20) + 1);
+  /* 3 · Las gráficas se recortan a los renglones que de verdad hubo.
+        Una gráfica apunta a un rango fijo; si la tabla trae menos renglones,
+        los de sobra quedan como categorías vacías y las barras se amontonan. */
+  const recortes: [string, number][] = [];
+  for (const [hoja, opciones] of Object.entries(libro.hojas ?? {})) {
+    const n = filasPorHoja.get(hoja);
+    if (opciones.recorte && n !== undefined) recortes.push([hoja, Math.max(1, Math.min(n, opciones.recorte))]);
+  }
+  if (recortes.length) {
     for (const ruta of Object.keys(zip.files)) {
       if (!/^xl\/charts\/chart\d+\.xml$/.test(ruta)) continue;
-      const xml = await zip.file(ruta)!.async("string");
-      zip.file(
-        ruta,
-        xml.replace(
-          /(<f>'Gráfica'!\$[A-Z]+\$\d+:\$[A-Z]+\$)(\d+)(<\/f>)/g,
-          (_m, a, _n, c) => `${a}${hasta}${c}`
-        )
-      );
+      let xml = await zip.file(ruta)!.async("string");
+      for (const [hoja, n] of recortes) {
+        const h = paraRegex(hoja);
+        const re = new RegExp(`(<f>(?:'${h}'|${h})!\\$[A-Z]+\\$)(\\d+)(:\\$[A-Z]+\\$)(\\d+)(</f>)`, "g");
+        xml = xml.replace(re, (_m, a, ini, b, _fin, c) => `${a}${ini}${b}${Number(ini) + n - 1}${c}`);
+      }
+      zip.file(ruta, xml);
     }
   }
 
-  const salida = await zip.generateAsync({
-    type: "nodebuffer",
-    compression: "DEFLATE",
-    compressionOptions: { level: 6 },
-  });
+  /* 4 · El nombre oculto del filtro, en el libro, tiene que decir lo mismo
+        que el filtro de la hoja. */
+  const wbRuta = "xl/workbook.xml";
+  let wb = await zip.file(wbRuta)!.async("string");
+  for (const [hoja, n] of filasPorHoja) {
+    const h = paraRegex(hoja);
+    const re = new RegExp(`((?:'${h}'|${h})!\\$A\\$1:\\$[A-Z]+\\$)1(</definedName>)`, "g");
+    wb = wb.replace(re, (_m, a, c) => `${a}${Math.max(2, n + 1)}${c}`);
+  }
+  zip.file(wbRuta, wb);
 
-  const nombre = `${def.nombre}${p.sufijo ? "_" + p.sufijo.replace(/[^\w.-]+/g, "_") : ""}.xlsx`;
+  const salida = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 6 } });
+  const base = NOMBRES[clave] ?? `MarkaLab_BI_${clave}`;
+  const nombre = `${base}${p.sufijo ? "_" + p.sufijo.replace(/[^\w.-]+/g, "_") : ""}.xlsx`;
   return new Response(new Uint8Array(salida), {
     headers: {
-      "content-type":
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "content-disposition": `attachment; filename="${nombre}"`,
       "cache-control": "no-store",
     },

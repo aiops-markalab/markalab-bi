@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { type ReactNode } from "react";
 import { useBI } from "@/lib/store";
 import { CORTE, fmt } from "@/lib/engine";
+import { VERSION } from "@/lib/version";
 import { Filtros } from "./filtros";
 import { CopilotoFlotante } from "./copiloto-flotante";
 
@@ -112,6 +113,9 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
           <div>
             {fmt(data.sucursales.length)} sucursales · {data.colecciones.length} colecciones
+          </div>
+          <div className="version" title="Versión publicada de la plataforma">
+            Versión {VERSION}
           </div>
           <button
             className="btn ghost sm"

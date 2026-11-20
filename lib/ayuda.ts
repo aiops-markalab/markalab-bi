@@ -137,23 +137,51 @@ export const GUIAS: Guia[] = [
     claves: ["argos", "copiloto", "ia", "inteligencia artificial", "chatgpt", "claude", "modelo"],
     ruta: "/copiloto",
     pasos: [
-      "La primera capa es un motor de nueve reglas, determinista y siempre disponible. Cada hallazgo declara la regla que lo disparó y los números que la cumplieron.",
-      "La segunda es un modelo de lenguaje que redacta y prioriza sobre esos hallazgos. No calcula nada, por eso no puede inventar una cifra.",
-      "La tercera es la memoria: lo que el equipo marca como útil o descarta se guarda como una lección y entra al contexto de la siguiente consulta.",
+      "Los hallazgos salen de un motor de nueve reglas, determinista y siempre disponible. Cada uno declara la regla que lo disparó y los números que la cumplieron.",
+      "Las preguntas las contesta un motor de consulta que calcula sobre el corte: entiende la medida, el periodo y de quién se habla, y da la cifra. Por ejemplo: sell-out de esta semana por cadena.",
+      "Cuando hay un modelo de lenguaje conectado, redacta la respuesta con ese cálculo como evidencia. No calcula nada por su cuenta, por eso no puede inventar una cifra.",
+      "La memoria: lo que el equipo marca como útil o descarta se guarda como una lección y entra al contexto de la siguiente consulta.",
       "El botón de abajo a la derecha abre a Argos desde cualquier pantalla, y sabe en cuál estás parado.",
-      "Si el modelo no responde en cuatro segundos, contesta el motor de reglas y lo declara en pantalla.",
+      "Si le preguntas algo que no es del tablero, lo dice en una línea: no es un asistente de propósito general.",
     ],
   },
   {
     id: "exportar",
     titulo: "Bajar los datos a Excel",
-    resumen: "De dónde se exporta y qué trae cada archivo.",
-    claves: ["exportar", "excel", "descargar", "csv", "bajar"],
+    resumen: "Cada pantalla baja su propio libro, con indicadores, gráficas y fórmulas.",
+    claves: ["exportar", "excel", "descargar", "csv", "bajar", "xlsx", "archivo"],
     ruta: "/reportes",
     pasos: [
-      "En Reportes, el botón Descargar CSV baja la tabla tal como está configurada, con sus totales.",
-      "El archivo usa punto y coma como separador, que es lo que espera Excel en español, y lleva la marca de codificación para que los acentos abran bien en Windows.",
-      "Si necesitas el detalle crudo sin agrupar, pon Punto de venta y Modelo como filas y enciende las medidas que ocupes.",
+      "Al pie de cada pantalla hay una barra de descarga. Baja el libro de esa pantalla con los filtros que tengas puestos: Resumen, Mapa, Qué atender, Detalle, Reportes, Escenarios, Estado de resultados, Copiloto y Salud del dato.",
+      "Todo libro abre en una hoja Tablero: los indicadores arriba, los supuestos en celdas azules y las gráficas abajo. El detalle va en hojas aparte.",
+      "Las celdas azules se mueven. Al cambiar el umbral, el flete o un supuesto del plan, las fórmulas recalculan el libro completo.",
+      "En Reportes, además, el botón CSV baja la tabla cruda, con punto y coma como separador.",
+      "Si necesitas el detalle crudo sin agrupar, pon Punto de venta y Modelo como filas y enciende las medidas que ocupes antes de bajar el CSV.",
+    ],
+  },
+  {
+    id: "simulador",
+    titulo: "Simular en Excel sin tocar la plataforma",
+    resumen:
+      "El libro que se descarga trae fórmulas vivas y gráficas: se mueve un supuesto y todo se recalcula dentro de Excel.",
+    claves: [
+      "simulador",
+      "simulacion",
+      "excel dinamico",
+      "graficas",
+      "editable",
+      "escenario en excel",
+      "tabla dinamica de excel",
+      "pivote",
+    ],
+    ruta: "/reportes",
+    pasos: [
+      "En Reportes, el botón Simulador del corte baja un libro con el corte completo y sus palancas.",
+      "La hoja Datos trae el corte completo del alcance filtrado, una línea por tienda y modelo, con filtros puestos en los encabezados. Desde ahí se puede insertar una tabla dinámica de Excel en dos clics.",
+      "La hoja Tablero tiene siete celdas azules: crecimiento, precio, umbral de cobertura, liquidación, descuento, costo financiero y gasto operativo. Al cambiarlas, la venta, el margen, el capital inmovilizado y el EBITDA se recalculan solos.",
+      "Las hojas Cadenas y Colecciones traen la venta simulada contra el año anterior y el margen, con dos gráficas que siguen a esas tablas.",
+      "Todo lo de abajo son fórmulas de Excel, no valores pegados: si alguien cambia un dato de la hoja Datos, el resto se ajusta.",
+      "El umbral del simulador hace lo mismo que el de la plataforma: a 8 semanas sale más excedente, a 16 menos.",
     ],
   },
   {
@@ -178,6 +206,34 @@ export type Novedad = {
 };
 
 export const NOVEDADES: Novedad[] = [
+  {
+    fecha: "2026-11-20",
+    tipo: "Novedad",
+    titulo: "Cada pantalla baja su propio Excel",
+    cuerpo:
+      "Al pie de cada pantalla hay una barra de descarga. Baja un libro con el tablero de indicadores, las gráficas y las fórmulas de esa pantalla, con los filtros que tengas puestos. Las celdas azules son supuestos: al moverlas se recalcula el libro completo.",
+  },
+  {
+    fecha: "2026-11-20",
+    tipo: "Novedad",
+    titulo: "Argos contesta con el dato exacto",
+    cuerpo:
+      "Argos ya calcula lo que se le pregunta: sell-out, venta, inventario, cobertura, capital, quiebres o margen; por cadena, colección, estado, tienda o modelo; de la semana, del mes o de las últimas 8 y 12 semanas. Si la pregunta no es del tablero, lo dice en una línea.",
+  },
+  {
+    fecha: "2026-11-20",
+    tipo: "Corrección",
+    titulo: "El mapa vuelve a abrir el detalle",
+    cuerpo:
+      "Al dar clic en un estado o en una bandera la pantalla se oscurecía y no aparecía nada. El cajón con el resumen de la incidencia ya abre: qué pasa, qué no embarcar, qué trasladar y qué resurtir.",
+  },
+  {
+    fecha: "2026-11-19",
+    tipo: "Novedad",
+    titulo: "Excel con simulador y gráficas",
+    cuerpo:
+      "Desde Reportes ya se baja un libro de Excel con tres hojas: el corte completo, un simulador de siete supuestos que recalcula hasta el EBITDA, y un resumen con dos gráficas. Son fórmulas vivas, no valores pegados.",
+  },
   {
     fecha: "2026-11-19",
     tipo: "Novedad",

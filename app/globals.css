@@ -378,6 +378,11 @@ textarea {
   background: var(--crit);
   color: #fff;
 }
+.rail .foot .version {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  opacity: 0.75;
+}
 .rail .foot {
   margin-top: auto;
   padding: 14px 10px 0;
@@ -622,7 +627,10 @@ select:hover {
 
 /* ---------- vistas y tarjetas ---------- */
 .view {
-  padding: 20px 22px 64px;
+  /* Abajo sobra espacio a propósito: la barra de descarga es lo último de la
+     página y el botón de Argos flota en esa misma esquina. Con este margen la
+     barra siempre se puede subir por encima del botón. */
+  padding: 20px 22px 104px;
   padding-left: max(22px, env(safe-area-inset-left, 0px));
   padding-right: max(22px, env(safe-area-inset-right, 0px));
   display: flex;
@@ -989,7 +997,9 @@ svg.spark {
 .drawer {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  /* Por encima del botón y del panel de Argos: el cajón trae sus propios
+     botones al pie y el botón flotante se les encimaba. */
+  z-index: 80;
   display: flex;
   justify-content: flex-end;
 }
@@ -1282,7 +1292,7 @@ hr.sep {
   margin-left: 2px;
 }
 
-.panel {
+.argos-panel {
   position: fixed;
   right: 20px;
   bottom: 20px;
@@ -1303,7 +1313,7 @@ hr.sep {
   transform-origin: bottom right;
   transition: opacity 0.18s ease, transform 0.18s ease;
 }
-.panel.on {
+.argos-panel.on {
   opacity: 1;
   pointer-events: auto;
   transform: none;
@@ -1364,6 +1374,7 @@ hr.sep {
   margin-top: 1px;
 }
 .burbuja p {
+  white-space: pre-line;
   margin: 0;
   padding: 9px 12px;
   font-size: 12.8px;
@@ -1459,7 +1470,7 @@ hr.sep {
   .flota-txt span {
     display: none;
   }
-  .panel {
+  .argos-panel {
     right: 10px;
     left: 10px;
     bottom: 10px;
@@ -1471,7 +1482,7 @@ hr.sep {
 
 @media print {
   .flota,
-  .panel {
+  .argos-panel {
     display: none;
   }
 }
@@ -1490,7 +1501,7 @@ hr.sep {
   grid-template-columns: minmax(0, 1fr) 272px;
   gap: 14px;
   align-items: start;
-  padding: 20px 22px 64px;
+  padding: 20px 22px 104px;
 }
 .reportes.sinpanel {
   grid-template-columns: minmax(0, 1fr);
@@ -2004,4 +2015,88 @@ table.pivote tr.gran td {
   font-size: 11.8px;
   line-height: 1.5;
   color: var(--ink-3);
+}
+
+/* Una acción de pantalla, arriba de todo. */
+.acciones {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: -4px;
+}
+
+/* ---------- la descarga de cada pantalla ---------- */
+.descarga {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 4px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+}
+.descarga-ico {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--accent);
+}
+.descarga-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.descarga-txt strong {
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.descarga-txt span {
+  font-size: 12px;
+  color: var(--ink-3);
+  line-height: 1.45;
+}
+.descarga-txt .descarga-error {
+  color: var(--crit, #b3261e);
+}
+.descarga-acc {
+  display: flex;
+  gap: 8px;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (max-width: 760px) {
+  .descarga {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .descarga-ico {
+    display: none;
+  }
+  .descarga-acc {
+    justify-content: stretch;
+  }
+  .descarga-acc .btn {
+    flex: 1;
+  }
+}
+@media print {
+  .descarga {
+    display: none;
+  }
+}
+.rep-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
 }

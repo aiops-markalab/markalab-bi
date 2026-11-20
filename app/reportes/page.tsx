@@ -16,7 +16,9 @@
 import { useMemo, useState } from "react";
 import { useBI } from "@/lib/store";
 import { CORTE, fmt } from "@/lib/engine";
-import { filasExcel, descargarLibro } from "@/lib/excel";
+import { Descarga, useBase } from "@/components/descarga";
+import { descargar } from "@/lib/excel";
+import { libroReporte, libroSimulador } from "@/lib/libros";
 import {
   DIMENSIONES,
   MEDIDAS,
@@ -69,7 +71,7 @@ const PLANTILLAS: Plantilla[] = [
 
 export default function Reportes() {
   const { vista } = useBI();
-  const [bajando, setBajando] = useState(false);
+  const base = useBase();
   const [cfg, setCfg] = useState<Config>(PLANTILLAS[0].cfg);
   const [plantilla, setPlantilla] = useState("ejecutivo");
   const [cerrados, setCerrados] = useState<Set<string>>(new Set());
@@ -120,45 +122,7 @@ export default function Reportes() {
     });
   };
 
-  /* El Excel no se arma aquí: el navegador no sabe escribir gráficas nativas.
-     Se mandan los renglones al servidor, que rellena una plantilla que ya las
-     trae, con sus fórmulas y su hoja de simulación. */
-  const descargarExcel = async () => {
-    if (bajando) return;
-    setBajando(true);
-    try {
-      await descargarLibro("corte", { Datos: filasExcel(vista) }, CORTE.etiqueta);
-    } catch {
-      alert("No se pudo generar el Excel. Vuelve a intentarlo.");
-    } finally {
-      setBajando(false);
-    }
-  };
-
-  /* El reporte que está en pantalla, con su gráfica.
-     Las columnas cambian según cómo esté configurada la tabla, así que los
-     encabezados viajan junto con los datos: la plantilla no puede traerlos
-     escritos. La gráfica sí es fija --dos columnas, veinte renglones-- y por
-     eso sobrevive aunque el reporte cambie de forma. */
-  const descargarReporte = async () => {
-    if (bajando) return;
-    setBajando(true);
-    try {
-      const x = aExcel(r, cfg);
-      await descargarLibro(
-        "reporte",
-        { Reporte: x.filas, "Gráfica": x.grafica },
-        `${CORTE.etiqueta}_${plantilla || "reporte"}`,
-        { Reporte: x.encabezados, "Gráfica": ["Concepto", x.medida] }
-      );
-    } catch {
-      alert("No se pudo generar el Excel. Vuelve a intentarlo.");
-    } finally {
-      setBajando(false);
-    }
-  };
-
-  const descargar = () => {
+  const bajarCSV = () => {
     const csv = aCSV(r, cfg);
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
@@ -187,6 +151,7 @@ export default function Reportes() {
 
   return (
     <div className={`reportes ${panel ? "" : "sinpanel"}`}>
+      <div className="rep-col">
       <div className="card rep-tabla">
         <div className="rep-top">
           <div className="rep-tabs" role="tablist" aria-label="Plantillas">
@@ -210,15 +175,6 @@ export default function Reportes() {
             <span className="note" style={{ margin: 0 }}>
               {fmt(r.filas.length)} renglones · {CORTE.etiqueta}
             </span>
-            <button className="btn sm" onClick={descargarReporte} disabled={bajando}>
-              {bajando ? "Armando Excel" : "Excel con gráfica"}
-            </button>
-            <button className="btn ghost sm" onClick={descargarExcel} disabled={bajando}>
-              Con simulador
-            </button>
-            <button className="btn ghost sm" onClick={descargar} title="Datos crudos, sin formato ni gráficas">
-              CSV
-            </button>
             <button
               className={`btn ghost sm ${panel ? "on" : ""}`}
               onClick={() => setPanel(!panel)}
@@ -317,6 +273,25 @@ export default function Reportes() {
             desplazamiento del grupo.
           </span>
         </div>
+      </div>
+      <Descarga
+        titulo="Este reporte en Excel"
+        contenido="La tabla tal como está en pantalla, con sus indicadores y su gráfica. El simulador trae el corte completo con palancas de venta, precio y liquidación."
+        armar={() => libroReporte(base, r, cfg, plantilla)}
+        extra={
+          <>
+            <button className="btn ghost" onClick={bajarCSV} title="Datos crudos, sin formato ni gráficas">
+              CSV
+            </button>
+            <button
+              className="btn ghost"
+              onClick={() => descargar(libroSimulador(base)).catch(() => alert("No se pudo generar el Excel."))}
+            >
+              Simulador del corte
+            </button>
+          </>
+        }
+      />
       </div>
 
       {panel ? (

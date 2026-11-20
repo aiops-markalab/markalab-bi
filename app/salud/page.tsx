@@ -2,11 +2,14 @@
 
 import { useMemo } from "react";
 import { useBI } from "@/lib/store";
+import { Descarga, useBase } from "@/components/descarga";
+import { libroSalud } from "@/lib/libros";
 import { Tile, Chip, Mono } from "@/components/ui";
 import { fmt, moneyCorto, pct, CORTE, PARAMS } from "@/lib/engine";
 
 export default function Salud() {
   const { data, vista, ind } = useBI();
+  const alcanceLibro = useBase();
 
   const porCadena = useMemo(() => {
     return data.cadenas
@@ -240,6 +243,11 @@ export default function Salud() {
           mexicano. No corresponden a cifras de ninguna empresa ni de ninguna cadena.
         </p>
       </div>
+      <Descarga
+        titulo="La salud del dato en Excel"
+        contenido="Qué sucursales entregan sell-out y cuáles no, por cadena, con indicadores y gráficas."
+        armar={() => libroSalud(alcanceLibro)}
+      />
     </div>
   );
 }

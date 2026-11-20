@@ -2,16 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useBI } from "@/lib/store";
+import { Descarga, useBase } from "@/components/descarga";
+import { libroHallazgos } from "@/lib/libros";
 import { Tile } from "@/components/ui";
-import {
-  analizar,
-  construirContexto,
-  resumenDeterminista,
-  ETIQUETA_SEVERIDAD,
-  type Hallazgo,
-  type Severidad,
-} from "@/lib/copiloto";
-import { CORTE, fmt, money, moneyCorto } from "@/lib/engine";
+import { ETIQUETA_SEVERIDAD, type Hallazgo, type Severidad } from "@/lib/copiloto";
+import { useArgos, pieDe, type Fuente } from "@/lib/argos";
+import type { TipoRespuesta } from "@/lib/consulta";
+import { fmt, moneyCorto } from "@/lib/engine";
 
 const TONO: Record<Severidad, string> = {
   critica: "crit",
@@ -23,17 +20,19 @@ const TONO: Record<Severidad, string> = {
 const SUGERIDAS = [
   "¿Qué tres cosas haría esta semana si solo pudiera hacer tres?",
   "¿Cuánto cuesta no hacer nada durante un mes más?",
-  "Explícame el caso de Nuevo León como se lo diría al comprador.",
-  "¿Qué pregunta debería hacerle al equipo que no me estoy haciendo?",
+  "¿Qué cadena tiene más capital parado?",
+  "Sell-out de este mes por cadena.",
 ];
 
 export default function Copiloto() {
-  const { vista, ind, filtro, bitacora, registrar } = useBI();
+  const { bitacora, registrar } = useBI();
+  const alcanceLibro = useBase();
+  const { preguntar: consultar, hallazgos } = useArgos();
   const [pregunta, setPregunta] = useState("");
   const [cargando, setCargando] = useState(false);
   const [respuesta, setRespuesta] = useState<string>("");
-  const [fuente, setFuente] = useState<"n8n" | "local" | null>(null);
-  const [detalle, setDetalle] = useState<string>("");
+  const [fuente, setFuente] = useState<Fuente | null>(null);
+  const [tipo, setTipo] = useState<TipoRespuesta | undefined>();
   const [ms, setMs] = useState<number>(0);
   const [abierto, setAbierto] = useState<string | null>(null);
   const [sesion, setSesion] = useState<string>("");
@@ -46,11 +45,6 @@ export default function Copiloto() {
     setSesion(`s-${Date.now().toString(36)}`);
   }, []);
 
-  const hallazgos = useMemo(
-    () => analizar(vista, ind, filtro.umbral, bitacora),
-    [vista, ind, filtro.umbral, bitacora]
-  );
-
   const recuperable = hallazgos
     .filter((h) => h.unidad === "recuperable")
     .reduce((a, h) => a + h.valor, 0);
@@ -62,32 +56,13 @@ export default function Copiloto() {
   async function preguntar(texto: string) {
     setCargando(true);
     setRespuesta("");
-    setDetalle("");
     setAprendido("");
-    const ctx = construirContexto(hallazgos, ind, filtro.umbral, CORTE.etiqueta, bitacora, texto);
-    try {
-      const r = await fetch("/api/copiloto", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...ctx, sesion }),
-      });
-      const d = await r.json();
-      setMs(d.ms ?? 0);
-      if (d.fuente === "n8n" && d.respuesta) {
-        setFuente("n8n");
-        setRespuesta(d.respuesta);
-      } else {
-        setFuente("local");
-        setDetalle(d.detalle ?? "");
-        setRespuesta(responderLocal(texto, hallazgos, ind));
-      }
-    } catch {
-      setFuente("local");
-      setDetalle("No se pudo alcanzar el servicio.");
-      setRespuesta(responderLocal(texto, hallazgos, ind));
-    } finally {
-      setCargando(false);
-    }
+    const r = await consultar(texto, { pantalla: { clave: "copiloto", titulo: "Copiloto" }, sesion });
+    setMs(r.ms);
+    setFuente(r.fuente);
+    setTipo(r.tipo);
+    setRespuesta(r.texto);
+    setCargando(false);
   }
 
   /* Lo que hace autodidacta al copiloto. Cada señal que deja el equipo se
@@ -168,7 +143,7 @@ export default function Copiloto() {
           <button
             className="btn ghost"
             disabled={cargando}
-            onClick={() => preguntar("Dame el resumen ejecutivo del corte.")}
+            onClick={() => preguntar("Resúmeme el corte.")}
           >
             Resumen ejecutivo
           </button>
@@ -208,12 +183,12 @@ export default function Copiloto() {
                 flexWrap: "wrap",
               }}
             >
-              <span className={`chip ${fuente === "n8n" ? "sano" : "neutro"}`}>
+              <span className="chip sano">
                 <b aria-hidden>●</b>
-                {fuente === "n8n" ? "Modelo vía n8n" : "Motor de reglas"}
+                Argos
               </span>
               <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
-                {ms} ms{detalle ? ` · ${detalle}` : ""}
+                {pieDe({ fuente: fuente ?? undefined, ms, tipo })}
               </span>
             </div>
             <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
@@ -267,8 +242,8 @@ export default function Copiloto() {
         ) : null}
 
         <p className="note">
-          Si el flujo de n8n no contesta en cuatro segundos, el motor de reglas responde en su lugar
-          y lo declara arriba. La plataforma nunca se queda esperando.
+          Argos calcula cada respuesta sobre el corte: entiende la medida, el periodo y de quién
+          se habla. Prueba con «sell-out de este mes por cadena» o «qué colección tiene más capital parado».
         </p>
       </div>
 
@@ -339,6 +314,11 @@ export default function Copiloto() {
           </p>
         </div>
       ) : null}
+      <Descarga
+        titulo="Los hallazgos en Excel"
+        contenido="Cada hallazgo con su regla, su acción y su impacto en pesos, más el tablero con el valor por hallazgo y por área."
+        armar={() => libroHallazgos(alcanceLibro, hallazgos)}
+      />
     </div>
   );
 }
@@ -426,58 +406,4 @@ function HallazgoFila({
       ) : null}
     </div>
   );
-}
-
-/** Respuesta sin modelo: se arma con los mismos hallazgos. */
-function responderLocal(
-  pregunta: string,
-  hallazgos: Hallazgo[],
-  ind: Parameters<typeof resumenDeterminista>[1]
-): string {
-  const q = pregunta.toLowerCase();
-
-  if (q.includes("tres") || q.includes("prioridad") || q.includes("semana")) {
-    const tres = hallazgos.slice(0, 3);
-    return (
-      "Tres cosas, en este orden:\n\n" +
-      tres
-        .map((h, i) => `${i + 1}. ${h.titulo}. ${h.accion}`)
-        .join("\n\n") +
-      "\n\nLas tres se pueden iniciar sin esperar a nadie más."
-    );
-  }
-
-  if (q.includes("no hacer nada") || q.includes("cuesta") || q.includes("costo")) {
-    const perdidaMes = ind.perdida * 4.3;
-    const costoCapital = (ind.capital * 0.18) / 12;
-    return (
-      `Un mes más sin actuar cuesta ${money(perdidaMes + costoCapital)}.\n\n` +
-      `${money(perdidaMes)} de venta que no ocurre porque el producto no está en el anaquel donde sí se vende, y ` +
-      `${money(costoCapital)} de costo financiero del inventario parado, a una tasa anual del 18%.\n\n` +
-      `No incluye el efecto de perder espacio de anaquel con el comprador, que es real y no se mide en esta cifra.`
-    );
-  }
-
-  if (q.includes("nuevo león") || q.includes("monterrey") || q.includes("comprador")) {
-    const h = hallazgos.find((x) => x.id.startsWith("sat-")) ?? hallazgos[0];
-    return (
-      `Para el comprador, en sus términos:\n\n` +
-      `"${h.cuerpo}"\n\n` +
-      `La propuesta no es dejar de surtirlos: es cambiar la mezcla. ${h.accion}\n\n` +
-      `El argumento que suele funcionar es el espacio: cada pieza que no rota ocupa un lugar que podría ` +
-      `tener producto que sí desplaza, y eso también es dinero para ellos, no solo para nosotros.`
-    );
-  }
-
-  if (q.includes("pregunta") && q.includes("equipo")) {
-    return (
-      "La pregunta que no se está haciendo es por qué el embarque se concentra en la última semana de cada mes.\n\n" +
-      "El patrón de los datos no corresponde a demanda, corresponde a cierre de cuota. Mientras el incentivo " +
-      "del equipo comercial siga atado al sell-in mensual y no al sell-out, cualquier corrección del inventario " +
-      "se va a deshacer sola en el siguiente cierre.\n\n" +
-      "Es una conversación de compensación, no de inventarios."
-    );
-  }
-
-  return resumenDeterminista(hallazgos, ind, pregunta);
 }

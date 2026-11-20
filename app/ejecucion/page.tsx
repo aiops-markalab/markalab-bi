@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useBI } from "@/lib/store";
+import { Descarga, useBase } from "@/components/descarga";
+import { libroEjecucion } from "@/lib/libros";
 import { Tile, Chip, Mono, Accion, Tabla, type Col } from "@/components/ui";
 import { Sparkline, Barras } from "@/components/charts";
 import {
@@ -17,6 +19,7 @@ type Pestana = "todo" | "noembarcar" | "trasladar" | "resurtir" | "liquidar";
 
 export default function Ejecucion() {
   const { vista, filtro, registrar, bitacora } = useBI();
+  const base = useBase();
   const [tab, setTab] = useState<Pestana>("todo");
 
   const sobre = useMemo(
@@ -427,6 +430,11 @@ export default function Ejecucion() {
           </div>
         </div>
       ) : null}
+      <Descarga
+        titulo="Las decisiones de la semana en Excel"
+        contenido="Traslados, no embarcar, resurtir y liquidar, cada uno en su hoja y con sus fórmulas. El flete, el umbral y los días objetivo son celdas vivas."
+        armar={() => libroEjecucion(base)}
+      />
     </div>
   );
 }

@@ -3,6 +3,8 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useBI } from "@/lib/store";
+import { Descarga, useBase } from "@/components/descarga";
+import { libroEscenario } from "@/lib/libros";
 import { Tile } from "@/components/ui";
 import { Treemap, Columnas } from "@/components/charts";
 import { fmt, money, moneyCorto, pct } from "@/lib/engine";
@@ -18,6 +20,7 @@ export default function Planeacion() {
     actualizarEscenario,
     reiniciarEscenario,
   } = useBI();
+  const alcanceLibro = useBase();
 
   const activo = escenarios.find((e) => e.id === escenarioId) ?? escenarios[0];
   const base = escenarios.find((e) => e.id === "base")!;
@@ -376,6 +379,11 @@ export default function Planeacion() {
           mercadotecnia.
         </p>
       </div>
+      <Descarga
+        titulo="El escenario en Excel"
+        contenido="El modelo del plan completo en fórmulas: los diez supuestos son celdas vivas y recalculan unidades por mes, P&L por trimestre y EBITDA."
+        armar={() => libroEscenario(alcanceLibro, activo, escenarios)}
+      />
     </div>
   );
 }

@@ -13,55 +13,34 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useBI } from "@/lib/store";
 import { Tile } from "@/components/ui";
 import { CaraAgente, AGENTE } from "@/components/agente";
-import { analizar, construirContexto, resumenDeterminista } from "@/lib/copiloto";
-import { CORTE, fmt } from "@/lib/engine";
+import { useArgos, pieDe, type Fuente } from "@/lib/argos";
+import type { TipoRespuesta } from "@/lib/consulta";
+import { fmt } from "@/lib/engine";
 import { GUIAS, NOVEDADES, buscarGuias } from "@/lib/ayuda";
 
 export default function Ayuda() {
-  const { vista, ind, filtro, bitacora } = useBI();
+  const { preguntar: consultar } = useArgos();
   const [q, setQ] = useState("");
   const [abierta, setAbierta] = useState<string | null>(null);
   const [respuesta, setRespuesta] = useState("");
-  const [fuente, setFuente] = useState<"n8n" | "local" | null>(null);
+  const [fuente, setFuente] = useState<Fuente | null>(null);
+  const [tipo, setTipo] = useState<TipoRespuesta | undefined>();
+  const [ms, setMs] = useState(0);
   const [cargando, setCargando] = useState(false);
 
   const resultados = useMemo(() => buscarGuias(q), [q]);
-  const hallazgos = useMemo(
-    () => analizar(vista, ind, filtro.umbral, bitacora),
-    [vista, ind, filtro.umbral, bitacora]
-  );
-
   async function preguntar() {
     if (!q.trim() || cargando) return;
     setCargando(true);
     setRespuesta("");
-    const ctx = construirContexto(hallazgos, ind, filtro.umbral, CORTE.etiqueta, bitacora, q);
-    try {
-      const r = await fetch("/api/copiloto", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          ...ctx,
-          pantalla: { clave: "ayuda", titulo: "Centro de ayuda" },
-        }),
-      });
-      const d = await r.json();
-      if (d.fuente === "n8n" && d.respuesta) {
-        setFuente("n8n");
-        setRespuesta(d.respuesta);
-      } else {
-        setFuente("local");
-        setRespuesta(resumenDeterminista(hallazgos, ind, q));
-      }
-    } catch {
-      setFuente("local");
-      setRespuesta(resumenDeterminista(hallazgos, ind, q));
-    } finally {
-      setCargando(false);
-    }
+    const r = await consultar(q, { pantalla: { clave: "ayuda", titulo: "Centro de ayuda" } });
+    setFuente(r.fuente);
+    setTipo(r.tipo);
+    setMs(r.ms);
+    setRespuesta(r.texto);
+    setCargando(false);
   }
 
   return (
@@ -120,12 +99,11 @@ export default function Ayuda() {
                 <div className="respuesta-top">
                   <CaraAgente tamano={22} />
                   <strong>Respuesta de {AGENTE.nombre}</strong>
-                  <span className={`chip ${fuente === "n8n" ? "sano" : "neutro"}`}>
-                    <b aria-hidden>●</b>
-                    {fuente === "n8n" ? "Modelo vía n8n" : "Motor de reglas"}
+                  <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
+                    {pieDe({ fuente: fuente ?? undefined, ms, tipo })}
                   </span>
                 </div>
-                <p>{respuesta}</p>
+                <p style={{ whiteSpace: "pre-line" }}>{respuesta}</p>
               </div>
             ) : null}
 

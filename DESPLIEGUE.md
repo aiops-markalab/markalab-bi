@@ -108,22 +108,34 @@ Tres cosas que ahorran una hora:
 
 | Variable | Demostración | Cliente real |
 | --- | --- | --- |
-| `N8N_WEBHOOK_URL` | `https://tools.markalab.com.mx/webhook/ml-bi/copiloto` | la misma |
+| `DEEPSEEK_API_KEY` | la llave de platform.deepseek.com | la misma |
+| `OPENAI_API_KEY` | alternativa: la de platform.openai.com | la misma |
+| `ANTHROPIC_API_KEY` | alternativa: la de console.anthropic.com | la misma |
+| `COPILOTO_PROVEEDOR` | vacía; solo si hay más de una llave | vacía |
+| `COPILOTO_MODELO` | vacía: usa el de omisión del proveedor | vacía |
+| `COPILOTO_TIMEOUT_MS` | `20000` | `20000` |
+| `N8N_WEBHOOK_URL` | opcional | opcional |
 | `N8N_APRENDER_URL` | vacía (se deriva sola) | vacía |
 | `N8N_WEBHOOK_TOKEN` | el que se defina | el mismo |
-| `COPILOTO_TIMEOUT_MS` | `4000` | `4000` |
 | `APRENDER_TIMEOUT_MS` | `2500` | `2500` |
 | `BI_CLIENTE_ID` | `0` | el id del cliente en `markalab.clientes` |
 | `NEXT_PUBLIC_BI_FUENTE` | `sintetica` | `api` |
 
-**Que no apunte a n8n Cloud.** La nube se apaga en cuanto termine la migración y
-el webhook se muere con ella. Si por lo que sea hoy solo existe la nube, la
-plataforma sigue funcionando: contesta con su motor de reglas y lo declara en
-pantalla. Pero frente a directivos conviene que la capa de modelo esté viva.
+**Con una sola llave basta para que Argos tenga modelo**: la de DeepSeek, la
+de OpenAI o la de Anthropic. La plataforma llama a la API directamente; no
+hace falta n8n. Márcala como *Secret*. Los modelos de omisión son
+`deepseek-flash`, `gpt-6.2-sol` y `claude-sonnet-5-5`.
+
+**Sin ninguna variable, Argos funciona igual.** Calcula cada respuesta sobre el
+corte con su motor de consulta. El modelo solo agrega la redacción.
+
+**n8n es opcional.** Sirve si se quiere que el workflow guarde memoria y
+bitácora en Supabase. Si se usa, que no apunte a n8n Cloud: la nube se apaga en
+cuanto termine la migración y el webhook se muere con ella.
 
 ---
 
-## 3. El copiloto en n8n
+## 3. El copiloto en n8n (opcional)
 
 ### 3.1 Importar
 

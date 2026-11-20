@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useBI } from "@/lib/store";
 import { Tile, Chip, Mono } from "@/components/ui";
 import { Lineas, Barras, Sparkline } from "@/components/charts";
 import {
+  CORTE,
   fmt,
   money,
   moneyCorto,
@@ -17,9 +18,12 @@ import {
   type Combo,
 } from "@/lib/engine";
 import { proyectar, ESCENARIOS_BASE } from "@/lib/plan";
+import { Descarga, useBase } from "@/components/descarga";
+import { libroResumen } from "@/lib/libros";
 
 export default function Resumen() {
   const { data, vista, ind, filtro, setEstado } = useBI();
+  const base = useBase();
 
   const indice = ind.sellIn > 0 ? (ind.sellOut / ind.sellIn) * 100 : 0;
   const brecha = ind.sellIn - ind.sellOut;
@@ -393,6 +397,11 @@ export default function Resumen() {
           estructura real del canal departamental mexicano.
         </p>
       </div>
+      <Descarga
+        titulo="El resumen en Excel"
+        contenido="Tablero con 12 indicadores y 4 gráficas, tablas por cadena, modelo y estado, y el corte completo. El umbral es una celda viva."
+        armar={() => libroResumen(base)}
+      />
     </div>
   );
 }

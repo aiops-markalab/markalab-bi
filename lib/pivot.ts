@@ -586,6 +586,8 @@ export function aExcel(
   filas: (string | number | null)[][];
   grafica: (string | number | null)[][];
   medida: string;
+  /** El total del reporte para la medida graficada, ya recalculado. */
+  total: number;
 } {
   const dims = cfg.filas.slice(0, 3).map(dimensionPorId);
   const meds = cfg.valores.map(medidaPorId);
@@ -633,5 +635,6 @@ export function aExcel(
     filas,
     grafica,
     medida: col0?.etiqueta ? `${col0.etiqueta} · ${primera.nombre}` : primera.nombre,
+    total: crudo(primera, valor(primera, r.total.get(col0?.clave ?? "") ?? r.total.get("") ?? vacio())),
   };
 }

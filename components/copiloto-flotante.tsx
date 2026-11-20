@@ -16,16 +16,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useBI } from "@/lib/store";
-import { analizar, construirContexto, resumenDeterminista } from "@/lib/copiloto";
+import { useArgos, pieDe, type Turno } from "@/lib/argos";
 import { contextoPantalla } from "@/lib/pantallas";
-import { CORTE, fmt } from "@/lib/engine";
+import { fmt } from "@/lib/engine";
 import { AGENTE, CaraAgente } from "./agente";
-
-type Turno = { de: "agente" | "usuario"; texto: string; fuente?: "n8n" | "local"; ms?: number };
 
 export function CopilotoFlotante() {
   const ruta = usePathname();
-  const { vista, ind, filtro, bitacora, escenarios, escenarioId } = useBI();
+  const { vista, ind, filtro, escenarios, escenarioId } = useBI();
+  const { preguntar: consultar, hallazgos } = useArgos();
 
   const [abierto, setAbierto] = useState(false);
   const [turnos, setTurnos] = useState<Turno[]>([]);
@@ -33,11 +32,6 @@ export function CopilotoFlotante() {
   const [cargando, setCargando] = useState(false);
   const [sesion, setSesion] = useState("");
   const fondo = useRef<HTMLDivElement>(null);
-
-  const hallazgos = useMemo(
-    () => analizar(vista, ind, filtro.umbral, bitacora),
-    [vista, ind, filtro.umbral, bitacora]
-  );
 
   const escenario = escenarios.find((e) => e.id === escenarioId)?.nombre;
   const pantalla = useMemo(
@@ -75,41 +69,18 @@ export function CopilotoFlotante() {
     const pregunta = q.trim();
     if (!pregunta || cargando) return;
     setTexto("");
+    const previos = turnos;
     setTurnos((t) => [...t, { de: "usuario", texto: pregunta }]);
     setCargando(true);
-
-    const ctx = construirContexto(hallazgos, ind, filtro.umbral, CORTE.etiqueta, bitacora, pregunta);
-    try {
-      const r = await fetch("/api/copiloto", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          ...ctx,
-          sesion,
-          // Esto es lo que vuelve consciente al copiloto de dónde está parado.
-          pantalla: { clave: pantalla.clave, titulo: pantalla.titulo },
-          escenario,
-        }),
-      });
-      const d = await r.json();
-      const desdeN8n = d.fuente === "n8n" && d.respuesta;
-      setTurnos((t) => [
-        ...t,
-        {
-          de: "agente",
-          texto: desdeN8n ? d.respuesta : resumenDeterminista(hallazgos, ind, pregunta),
-          fuente: desdeN8n ? "n8n" : "local",
-          ms: d.ms ?? 0,
-        },
-      ]);
-    } catch {
-      setTurnos((t) => [
-        ...t,
-        { de: "agente", texto: resumenDeterminista(hallazgos, ind, pregunta), fuente: "local", ms: 0 },
-      ]);
-    } finally {
-      setCargando(false);
-    }
+    const r = await consultar(pregunta, {
+      // Esto es lo que vuelve consciente al copiloto de dónde está parado.
+      pantalla: { clave: pantalla.clave, titulo: pantalla.titulo },
+      // Y esto, lo que le deja entender un "¿y en Sears?".
+      historial: previos.slice(1),
+      sesion,
+    });
+    setTurnos((t) => [...t, { de: "agente", texto: r.texto, fuente: r.fuente, ms: r.ms, tipo: r.tipo }]);
+    setCargando(false);
   }
 
   /* La chinche cuenta hallazgos críticos, no combinaciones con alerta. Son
@@ -136,7 +107,7 @@ export function CopilotoFlotante() {
         </button>
       ) : null}
 
-      <aside className={`panel ${abierto ? "on" : ""}`} aria-hidden={!abierto}>
+      <aside className={`argos-panel ${abierto ? "on" : ""}`} aria-hidden={!abierto}>
         <header className="panel-top">
           <CaraAgente tamano={32} />
           <div className="panel-id">
@@ -158,11 +129,7 @@ export function CopilotoFlotante() {
               ) : null}
               <div>
                 <p>{t.texto}</p>
-                {t.fuente ? (
-                  <span className="burbuja-pie">
-                    {t.fuente === "n8n" ? "Modelo vía n8n" : "Motor de reglas"} · {t.ms} ms
-                  </span>
-                ) : null}
+                {t.fuente && pieDe(t) ? <span className="burbuja-pie">{pieDe(t)}</span> : null}
               </div>
             </div>
           ))}

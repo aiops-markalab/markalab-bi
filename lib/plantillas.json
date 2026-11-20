@@ -1,0 +1,716 @@
+{
+ "mapa": {
+  "archivo": "mapa.xlsx",
+  "celdas": {
+   "subtitulo": [
+    "Tablero",
+    "B2"
+   ],
+   "estados": [
+    "Tablero",
+    "B6"
+   ],
+   "alerta": [
+    "Tablero",
+    "D6"
+   ],
+   "capital": [
+    "Tablero",
+    "F6"
+   ],
+   "exc": [
+    "Tablero",
+    "H6"
+   ],
+   "perdida": [
+    "Tablero",
+    "J6"
+   ],
+   "impacto": [
+    "Tablero",
+    "L6"
+   ],
+   "umbral": [
+    "Tablero",
+    "E11"
+   ],
+   "descuento": [
+    "Tablero",
+    "E12"
+   ],
+   "tasa": [
+    "Tablero",
+    "E13"
+   ],
+   "liberado": [
+    "Tablero",
+    "L11"
+   ],
+   "castigo": [
+    "Tablero",
+    "L12"
+   ],
+   "ahorro": [
+    "Tablero",
+    "L13"
+   ],
+   "perdidaAnual": [
+    "Tablero",
+    "L14"
+   ]
+  },
+  "hojas": {
+   "Estados": {
+    "sobrantes": "conservar",
+    "recorte": 15
+   },
+   "Sucursales": {
+    "sobrantes": "conservar"
+   },
+   "Datos": {
+    "sobrantes": "conservar"
+   }
+  }
+ },
+ "resumen": {
+  "archivo": "resumen.xlsx",
+  "celdas": {
+   "subtitulo": [
+    "Tablero",
+    "B2"
+   ],
+   "sellout8": [
+    "Tablero",
+    "B6"
+   ],
+   "venta": [
+    "Tablero",
+    "D6"
+   ],
+   "variacion": [
+    "Tablero",
+    "F6"
+   ],
+   "cobertura": [
+    "Tablero",
+    "H6"
+   ],
+   "capital": [
+    "Tablero",
+    "J6"
+   ],
+   "perdida": [
+    "Tablero",
+    "L6"
+   ],
+   "piezas": [
+    "Tablero",
+    "B10"
+   ],
+   "quiebres": [
+    "Tablero",
+    "D10"
+   ],
+   "sobre": [
+    "Tablero",
+    "F10"
+   ],
+   "sellin": [
+    "Tablero",
+    "H10"
+   ],
+   "indice": [
+    "Tablero",
+    "J10"
+   ],
+   "margen": [
+    "Tablero",
+    "L10"
+   ],
+   "umbral": [
+    "Tablero",
+    "E15"
+   ],
+   "tasa": [
+    "Tablero",
+    "E16"
+   ],
+   "financiero": [
+    "Tablero",
+    "L15"
+   ],
+   "perdidaAnual": [
+    "Tablero",
+    "L16"
+   ],
+   "inaccion": [
+    "Tablero",
+    "L17"
+   ]
+  },
+  "hojas": {
+   "Cadenas": {
+    "sobrantes": "conservar",
+    "recorte": 8
+   },
+   "Modelos": {
+    "sobrantes": "conservar",
+    "recorte": 10
+   },
+   "Estados": {
+    "sobrantes": "conservar",
+    "recorte": 10
+   },
+   "Serie": {
+    "sobrantes": "conservar"
+   },
+   "Datos": {
+    "sobrantes": "conservar"
+   }
+  }
+ },
+ "ejecucion": {
+  "archivo": "ejecucion.xlsx",
+  "celdas": {
+   "subtitulo": [
+    "Tablero",
+    "B2"
+   ],
+   "sobre": [
+    "Tablero",
+    "B6"
+   ],
+   "capital": [
+    "Tablero",
+    "D6"
+   ],
+   "traslados": [
+    "Tablero",
+    "F6"
+   ],
+   "perdida": [
+    "Tablero",
+    "H6"
+   ],
+   "resurtir": [
+    "Tablero",
+    "J6"
+   ],
+   "inaccion": [
+    "Tablero",
+    "L6"
+   ],
+   "umbral": [
+    "Tablero",
+    "E11"
+   ],
+   "flete": [
+    "Tablero",
+    "E12"
+   ],
+   "dias": [
+    "Tablero",
+    "E13"
+   ],
+   "tasa": [
+    "Tablero",
+    "E14"
+   ],
+   "edad": [
+    "Tablero",
+    "E15"
+   ],
+   "descuento": [
+    "Tablero",
+    "E16"
+   ],
+   "fleteTotal": [
+    "Tablero",
+    "L11"
+   ],
+   "recupera": [
+    "Tablero",
+    "L12"
+   ],
+   "neto": [
+    "Tablero",
+    "L13"
+   ],
+   "viejas": [
+    "Tablero",
+    "L14"
+   ],
+   "viejasCosto": [
+    "Tablero",
+    "L15"
+   ],
+   "viejasCaja": [
+    "Tablero",
+    "L16"
+   ]
+  },
+  "hojas": {
+   "Traslados": {
+    "sobrantes": "conservar"
+   },
+   "No embarcar": {
+    "sobrantes": "quitar"
+   },
+   "Resurtir": {
+    "sobrantes": "quitar"
+   },
+   "Liquidar": {
+    "sobrantes": "quitar"
+   },
+   "Colecciones": {
+    "sobrantes": "conservar",
+    "recorte": 12
+   },
+   "Datos": {
+    "sobrantes": "conservar"
+   }
+  }
+ },
+ "detalle": {
+  "archivo": "detalle.xlsx",
+  "celdas": {
+   "subtitulo": [
+    "Tablero",
+    "B2"
+   ],
+   "combos": [
+    "Tablero",
+    "B6"
+   ],
+   "piezas": [
+    "Tablero",
+    "D6"
+   ],
+   "so": [
+    "Tablero",
+    "F6"
+   ],
+   "capital": [
+    "Tablero",
+    "H6"
+   ],
+   "perdida": [
+    "Tablero",
+    "J6"
+   ],
+   "impacto": [
+    "Tablero",
+    "L6"
+   ],
+   "sanas": [
+    "Tablero",
+    "B10"
+   ],
+   "altas": [
+    "Tablero",
+    "D10"
+   ],
+   "saturadas": [
+    "Tablero",
+    "F10"
+   ],
+   "quiebres": [
+    "Tablero",
+    "H10"
+   ],
+   "sinReporte": [
+    "Tablero",
+    "J10"
+   ],
+   "umbral": [
+    "Tablero",
+    "E15"
+   ]
+  },
+  "hojas": {
+   "Detalle": {
+    "sobrantes": "quitar",
+    "recorte": 15
+   },
+   "Clases": {
+    "sobrantes": "conservar",
+    "recorte": 4
+   }
+  }
+ },
+ "reporte": {
+  "archivo": "reporte.xlsx",
+  "celdas": {
+   "subtitulo": [
+    "Tablero",
+    "B2"
+   ],
+   "total": [
+    "Tablero",
+    "B6"
+   ],
+   "renglones": [
+    "Tablero",
+    "D6"
+   ],
+   "mayorNombre": [
+    "Tablero",
+    "F6"
+   ],
+   "mayor": [
+    "Tablero",
+    "H6"
+   ],
+   "parte": [
+    "Tablero",
+    "J6"
+   ],
+   "promedio": [
+    "Tablero",
+    "L6"
+   ]
+  },
+  "hojas": {
+   "Reporte": {
+    "sobrantes": "quitar"
+   },
+   "Gráfica": {
+    "sobrantes": "conservar",
+    "recorte": 20
+   }
+  }
+ },
+ "corte": {
+  "archivo": "simulador.xlsx",
+  "celdas": {
+   "subtitulo": [
+    "Tablero",
+    "B2"
+   ],
+   "venta": [
+    "Tablero",
+    "B6"
+   ],
+   "variacion": [
+    "Tablero",
+    "D6"
+   ],
+   "margenPct": [
+    "Tablero",
+    "F6"
+   ],
+   "capital": [
+    "Tablero",
+    "H6"
+   ],
+   "liberado": [
+    "Tablero",
+    "J6"
+   ],
+   "ebitda": [
+    "Tablero",
+    "L6"
+   ],
+   "crecimiento": [
+    "Tablero",
+    "E11"
+   ],
+   "precio": [
+    "Tablero",
+    "E12"
+   ],
+   "umbral": [
+    "Tablero",
+    "E13"
+   ],
+   "liquidacion": [
+    "Tablero",
+    "E14"
+   ],
+   "descuento": [
+    "Tablero",
+    "E15"
+   ],
+   "tasa": [
+    "Tablero",
+    "E16"
+   ],
+   "gasto": [
+    "Tablero",
+    "E17"
+   ],
+   "ventaR": [
+    "Tablero",
+    "L11"
+   ],
+   "ventaAnt": [
+    "Tablero",
+    "L12"
+   ],
+   "costoVendido": [
+    "Tablero",
+    "L13"
+   ],
+   "margen": [
+    "Tablero",
+    "L14"
+   ],
+   "capitalR": [
+    "Tablero",
+    "L15"
+   ],
+   "liberadoR": [
+    "Tablero",
+    "L16"
+   ],
+   "castigo": [
+    "Tablero",
+    "L17"
+   ],
+   "ahorro": [
+    "Tablero",
+    "L18"
+   ],
+   "gastoOp": [
+    "Tablero",
+    "L19"
+   ],
+   "ebitdaR": [
+    "Tablero",
+    "L20"
+   ]
+  },
+  "hojas": {
+   "Cadenas": {
+    "sobrantes": "conservar",
+    "recorte": 8
+   },
+   "Colecciones": {
+    "sobrantes": "conservar",
+    "recorte": 12
+   },
+   "Datos": {
+    "sobrantes": "conservar"
+   }
+  }
+ },
+ "escenario": {
+  "archivo": "escenario.xlsx",
+  "celdas": {
+   "subtitulo": [
+    "Tablero",
+    "B2"
+   ],
+   "ingreso": [
+    "Tablero",
+    "B6"
+   ],
+   "margen": [
+    "Tablero",
+    "D6"
+   ],
+   "margenPct": [
+    "Tablero",
+    "F6"
+   ],
+   "ebitda": [
+    "Tablero",
+    "H6"
+   ],
+   "ebitdaPct": [
+    "Tablero",
+    "J6"
+   ],
+   "caja": [
+    "Tablero",
+    "L6"
+   ],
+   "crecimiento": [
+    "Tablero",
+    "E11"
+   ],
+   "precio": [
+    "Tablero",
+    "E12"
+   ],
+   "costo": [
+    "Tablero",
+    "E13"
+   ],
+   "elasticidad": [
+    "Tablero",
+    "E14"
+   ],
+   "servicio": [
+    "Tablero",
+    "E15"
+   ],
+   "mercadotecnia": [
+    "Tablero",
+    "K11"
+   ],
+   "dias": [
+    "Tablero",
+    "K12"
+   ],
+   "liquidacion": [
+    "Tablero",
+    "K13"
+   ],
+   "gastoFijo": [
+    "Tablero",
+    "K14"
+   ],
+   "gastoVariable": [
+    "Tablero",
+    "K15"
+   ],
+   "perdidaSem": [
+    "Tablero",
+    "E18"
+   ],
+   "capitalParado": [
+    "Tablero",
+    "E19"
+   ],
+   "baseMkt": [
+    "Tablero",
+    "E20"
+   ],
+   "baseDias": [
+    "Tablero",
+    "E21"
+   ],
+   "factor": [
+    "Tablero",
+    "L18"
+   ],
+   "recuperado": [
+    "Tablero",
+    "L19"
+   ],
+   "costoInv": [
+    "Tablero",
+    "L20"
+   ],
+   "perdLiq": [
+    "Tablero",
+    "L21"
+   ],
+   "unidades": [
+    "Tablero",
+    "L22"
+   ]
+  },
+  "hojas": {
+   "Modelo": {
+    "sobrantes": "conservar",
+    "recorte": 12
+   },
+   "Meses": {
+    "sobrantes": "conservar"
+   },
+   "Resultados": {
+    "sobrantes": "conservar",
+    "recorte": 4
+   },
+   "Trimestres": {
+    "sobrantes": "conservar",
+    "recorte": 4
+   },
+   "Escenarios": {
+    "sobrantes": "conservar",
+    "recorte": 8
+   },
+   "Cadenas": {
+    "sobrantes": "conservar",
+    "recorte": 8
+   }
+  }
+ },
+ "salud": {
+  "archivo": "salud.xlsx",
+  "celdas": {
+   "subtitulo": [
+    "Tablero",
+    "B2"
+   ],
+   "sucursales": [
+    "Tablero",
+    "B6"
+   ],
+   "reportan": [
+    "Tablero",
+    "D6"
+   ],
+   "pct": [
+    "Tablero",
+    "F6"
+   ],
+   "sin": [
+    "Tablero",
+    "H6"
+   ],
+   "piezasSin": [
+    "Tablero",
+    "J6"
+   ],
+   "combosSin": [
+    "Tablero",
+    "L6"
+   ]
+  },
+  "hojas": {
+   "Cadenas": {
+    "sobrantes": "conservar",
+    "recorte": 8
+   },
+   "Sucursales": {
+    "sobrantes": "quitar"
+   }
+  }
+ },
+ "hallazgos": {
+  "archivo": "hallazgos.xlsx",
+  "celdas": {
+   "subtitulo": [
+    "Tablero",
+    "B2"
+   ],
+   "total": [
+    "Tablero",
+    "B6"
+   ],
+   "criticos": [
+    "Tablero",
+    "D6"
+   ],
+   "liberable": [
+    "Tablero",
+    "F6"
+   ],
+   "recuperable": [
+    "Tablero",
+    "H6"
+   ],
+   "riesgo": [
+    "Tablero",
+    "J6"
+   ],
+   "valor": [
+    "Tablero",
+    "L6"
+   ]
+  },
+  "hojas": {
+   "Hallazgos": {
+    "sobrantes": "quitar",
+    "recorte": 12
+   },
+   "Áreas": {
+    "sobrantes": "conservar",
+    "recorte": 6
+   }
+  }
+ }
+}

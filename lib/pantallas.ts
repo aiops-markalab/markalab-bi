@@ -20,6 +20,7 @@ import {
   type Indicadores,
 } from "./engine";
 import type { Hallazgo } from "./copiloto";
+import { CADENAS, COLECCIONES, ESTADOS, MARCAS } from "./catalog";
 
 export type ContextoPantalla = {
   clave: string;
@@ -40,12 +41,17 @@ type Entrada = {
 
 /** El alcance que los filtros dejan puesto, dicho como lo diría una persona. */
 export function alcance(f: Filtro): string {
+  // Los filtros guardan claves --LIV, NL, tsuyosa-- y aquí se dice el nombre:
+  // esto se lee en el saludo de Argos y en el encabezado de cada Excel.
   const p: string[] = [];
   if (f.ciudad) p.push(f.ciudad);
-  else if (f.estado) p.push(f.estado);
-  if (f.cadena) p.push(f.cadena);
+  else if (f.estado) p.push(ESTADOS.find((e) => e.id === f.estado)?.nombre ?? f.estado);
+  if (f.cadena) p.push(CADENAS.find((c) => c.id === f.cadena)?.nombre ?? f.cadena);
   if (f.modelo) p.push(f.modelo);
-  else if (f.coleccion) p.push(f.coleccion);
+  else if (f.coleccion) p.push(COLECCIONES.find((c) => c.id === f.coleccion)?.nombre ?? f.coleccion);
+  else if (f.marca) p.push(MARCAS.find((m) => m.id === f.marca)?.nombre ?? f.marca);
+  if (f.genero) p.push(f.genero);
+  if (f.material) p.push(f.material);
   return p.length ? p.join(" · ") : "todo el canal";
 }
 
@@ -72,9 +78,9 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
           ? `Estás viendo el mapa sobre ${donde}. De ${fmt(estados.length)} estados con presencia, ${fmt(rojos.length)} están en alerta, y el de mayor impacto es ${top.estado.nombre} con ${moneyCorto(top.capital + top.perdida * 4)} entre capital parado y venta en riesgo. ¿Te digo por dónde empezar?`
           : `Estás viendo el mapa sobre ${donde}, y con estos filtros no queda ningún estado con alerta. ¿Quieres que lo revise sin filtros?`,
         sugeridas: [
-          "¿Qué estado atiendo primero y por qué?",
-          "¿Por qué este estado está en rojo si su cobertura promedio se ve sana?",
-          "Dame el guion para hablar de este mapa con el comprador.",
+          "¿Qué estado atiendo primero?",
+          "¿Qué estados tienen más capital parado?",
+          "¿Cuántos quiebres hay por estado?",
         ],
       };
     }
@@ -93,7 +99,7 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
         sugeridas: [
           "¿Qué tres cosas haría esta semana si solo pudiera hacer tres?",
           "¿Por qué no puedo mover esta pieza a la otra cadena?",
-          "Escríbeme el correo para pedir el traslado.",
+          "¿Qué traslados me convienen?",
         ],
       };
     }
@@ -104,9 +110,9 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
         titulo: "Detalle por tienda",
         saludo: `Estás en el detalle crudo: ${fmt(vista.length)} combinaciones de tienda y modelo sobre ${donde}. Aquí no hay interpretación, son los números tal cual. ¿Quieres que te diga qué buscar en ellos?`,
         sugeridas: [
-          "¿Qué tiendas se ven sanas en promedio pero están mal por dentro?",
-          "¿Qué modelos conviene dejar de embarcar y cuáles resurtir?",
-          "¿Qué hago con las tiendas que no reportan sell-out?",
+          "¿Cuál es la tienda con menos cobertura?",
+          "¿Qué modelos tienen más quiebres?",
+          "¿Cuántas tiendas no reportan sell-out?",
         ],
       };
     }
@@ -117,9 +123,9 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
         titulo: "Escenarios",
         saludo: `Estás moviendo supuestos${d.escenario ? ` en el escenario «${d.escenario}»` : ""}. Lo que cambies aquí se propaga hasta EBITDA. ¿Quieres que te diga qué supuesto mueve más el resultado?`,
         sugeridas: [
-          "¿Qué supuesto mueve más el EBITDA y cuál casi no lo mueve?",
-          "¿Qué tan realista es este escenario contra lo que se ve en piso?",
-          "Explícame la diferencia entre este escenario y el plan comprometido.",
+          "¿Cuál es el EBITDA del escenario?",
+          "Compara los escenarios.",
+          "¿Cuál es el margen por colección?",
         ],
       };
     }
@@ -130,9 +136,9 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
         titulo: "Estado de resultados",
         saludo: `Estás en el estado de resultados proyectado${d.escenario ? ` del escenario «${d.escenario}»` : ""}. ¿Quieres que te arme la lectura trimestre por trimestre, como se la contarías al consejo?`,
         sugeridas: [
-          "Resume este P&L en tres frases para el consejo.",
-          "¿De dónde sale la diferencia contra el plan comprometido?",
-          "¿Cuánto de este margen depende de que el canal se destrabe?",
+          "¿Cuál es el EBITDA del escenario?",
+          "Compara los escenarios.",
+          "¿Cuánto cuesta no hacer nada un mes más?",
         ],
       };
     }
@@ -143,9 +149,9 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
         titulo: "Salud del dato",
         saludo: `Estás viendo qué tanto del negocio es realmente visible. Hoy reporta sell-out el ${fmt(ind.coberturaReporte, 1)}% de la red. ¿Te explico qué decisiones se vuelven inseguras con ese porcentaje?`,
         sugeridas: [
-          "¿Qué decisiones no debería tomar con esta cobertura de dato?",
-          "¿Cómo le pido a la cadena que reporte lo que falta?",
-          "¿Cuánto vale cerrar esa brecha de información?",
+          "¿Cuántas tiendas no reportan?",
+          "¿Qué es la venta perdida?",
+          "¿Cómo se calcula la cobertura?",
         ],
       };
     }
@@ -156,8 +162,8 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
         titulo: "Reportes",
         saludo: `Estás armando un reporte sobre ${donde}: ${fmt(vista.length)} combinaciones dentro del alcance. Dime qué quieres saber y te digo por qué niveles cortarlo.`,
         sugeridas: [
-          "¿Cómo veo qué colección se está cayendo contra el año pasado?",
-          "¿Qué niveles uso para enseñarle esto al comprador de Liverpool?",
+          "¿Qué colección se está cayendo contra el año pasado?",
+          "Sell-out de esta semana por cadena.",
           "¿Por qué la cobertura del total no es el promedio de los renglones?",
         ],
       };
@@ -169,9 +175,9 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
         titulo: "Estado de carga",
         saludo: `Estás viendo de dónde viene el dato. Hoy reporta sell-out el ${fmt(ind.coberturaReporte, 1)}% de la red. ¿Te digo qué se puede y qué no se puede decidir con eso?`,
         sugeridas: [
-          "¿Qué pasa con las tiendas que no reportan?",
-          "¿Qué haría falta para conectar los datos reales de las cadenas?",
-          "¿Cómo le explico al cliente que los datos de esta demostración son simulados?",
+          "¿Cuántas tiendas no reportan?",
+          "¿Qué es el sell-out y el sell-in?",
+          "¿Cuál fue el sell-out de este mes?",
         ],
       };
     }
@@ -182,7 +188,7 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
         titulo: "Centro de ayuda",
         saludo: `Pregúntame lo que necesites de la plataforma. Si hay una guía escrita te la doy, y si no, te contesto con las cifras del corte ${corteEtiqueta(vista)}.`,
         sugeridas: [
-          "¿Cómo armo un reporte comparativo?",
+          "¿Cómo se calcula la cobertura?",
           "¿Por qué no puedo mover una pieza de Liverpool a Sears?",
           "¿Qué hace Argos exactamente?",
         ],
@@ -197,7 +203,7 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
         sugeridas: [
           "¿Qué tres cosas haría esta semana si solo pudiera hacer tres?",
           "¿Cuánto cuesta no hacer nada durante un mes más?",
-          "¿Qué pregunta debería hacerle al equipo que no me estoy haciendo?",
+          "¿Qué cadena tiene más capital parado?",
         ],
       };
     }
@@ -212,7 +218,7 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
         sugeridas: [
           "Resúmeme el corte en tres frases.",
           "¿Qué cambió respecto de la semana pasada?",
-          "¿Qué le enseño primero al director comercial?",
+          "Sell-out de este mes por cadena.",
         ],
       };
     }

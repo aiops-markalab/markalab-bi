@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useBI } from "@/lib/store";
+import { Descarga, useBase } from "@/components/descarga";
+import { libroDetalle } from "@/lib/libros";
 import { Tile, Chip, Mono, Tabla, type Col } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
 import { fmt, moneyCorto, type Combo, type ClaseEstado } from "@/lib/engine";
@@ -10,6 +12,7 @@ type Orden = "impacto" | "inv" | "cob" | "so" | "edad";
 
 export default function Detalle() {
   const { vista } = useBI();
+  const base = useBase();
   const [busca, setBusca] = useState("");
   const [clase, setClase] = useState<ClaseEstado | "">("");
   const [orden, setOrden] = useState<Orden>("impacto");
@@ -173,6 +176,11 @@ export default function Detalle() {
           </span>
         </div>
       </div>
+      <Descarga
+        titulo="El detalle en Excel"
+        contenido="Cada combinación de tienda y modelo con su cobertura, excedente y clasificación en fórmula, más el tablero con indicadores y gráficas."
+        armar={() => libroDetalle(base)}
+      />
     </div>
   );
 }

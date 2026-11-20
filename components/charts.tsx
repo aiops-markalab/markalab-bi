@@ -3,6 +3,11 @@
 import { useState, type ReactNode } from "react";
 import { fmt, moneyCorto } from "@/lib/engine";
 
+/* Las coordenadas se redondean a dos decimales. Node y el navegador no siempre
+   dan el mismo último dígito en una división, y con que uno difiera React
+   avisa de que el HTML del servidor no coincide con el del cliente. */
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
 type Punto = { et: string; a: number; b: number; pie?: string };
 
 /* ------------------------------------------------------------------ *
@@ -30,8 +35,8 @@ export function Lineas({
   const max = Math.max(...datos.flatMap((d) => [d.a, d.b])) * 1.15 || 10;
   const iw = W - L - R,
     ih = H - T - B;
-  const X = (i: number) => L + (iw / Math.max(1, datos.length - 1)) * i;
-  const Y = (v: number) => T + ih - (v / max) * ih;
+  const X = (i: number) => r2(L + (iw / Math.max(1, datos.length - 1)) * i);
+  const Y = (v: number) => r2(T + ih - (v / max) * ih);
   const paso = Math.max(200, Math.round(max / 4 / 200) * 200);
 
   const linea = (k: "a" | "b") =>
@@ -182,7 +187,7 @@ export function Barras({
   let max = Math.max(...datos.map((d) => d.v)) * 1.1 || 1;
   if (referencia) max = Math.max(max, referencia * 1.4);
   const iw = W - L - R;
-  const X = (v: number) => L + (v / max) * iw;
+  const X = (v: number) => r2(L + (v / max) * iw);
 
   return (
     <div className="chartwrap">
@@ -386,7 +391,7 @@ export function Columnas({ datos }: { datos: { et: string; v: number }[] }) {
   const max = Math.max(...datos.map((d) => Math.abs(d.v))) * 1.2 || 1;
   const ih = H - T - B;
   const cero = T + ih / 2 + (max > 0 ? 0 : 0);
-  const Y = (v: number) => cero - (v / max) * (ih / 2);
+  const Y = (v: number) => r2(cero - (v / max) * (ih / 2));
   const bw = (W - L * 2) / datos.length - 14;
 
   return (

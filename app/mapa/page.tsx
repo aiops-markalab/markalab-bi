@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useBI } from "@/lib/store";
+import { Descarga, useBase } from "@/components/descarga";
+import { libroMapa } from "@/lib/libros";
 import { MapaMexico } from "@/components/mapa";
 import { Tile, Chip, Mono, Drawer, Accion, Tabla, type Col } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
@@ -26,6 +28,7 @@ type Foco =
 
 export default function Mapa() {
   const { vista, filtro, setEstado, registrar } = useBI();
+  const base = useBase();
   const [foco, setFoco] = useState<Foco>(null);
 
   const estados = useMemo(() => porEstado(vista, filtro.umbral), [vista, filtro.umbral]);
@@ -415,6 +418,11 @@ export default function Mapa() {
           </div>
         </div>
       </Drawer>
+      <Descarga
+        titulo="El mapa en Excel"
+        contenido="Tablero con indicadores y dos gráficas, los estados y las sucursales clasificados con fórmula, y el corte completo. El umbral y el descuento de liquidación son celdas vivas."
+        armar={() => libroMapa(base)}
+      />
     </div>
   );
 }
