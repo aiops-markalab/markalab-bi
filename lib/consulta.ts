@@ -27,7 +27,7 @@
 
 import {
   CORTE, DIAS_HISTORIA, PARAMS, PRIMER_DIA, ULTIMO_DIA, cambioDeCorte, diaDeFecha, diasDe, enPeriodo,
-  etiquetaPeriodo, fechaCorta, fmt, fracciones, moneyCorto,
+  etiquetaPeriodo, fechaCorta, fechasDeSemana, fmt, fracciones, moneyCorto, rangoCorto, rangoDeSemana,
   type Combo, type Dataset, type Fracciones, type Periodo as PeriodoDias,
 } from "./engine";
 import { CADENAS, COLECCIONES, ESTADOS, MARCAS, cadenaPorId, estadoPorId, marcaPorId } from "./catalog";
@@ -431,9 +431,11 @@ function nombrePeriodo(p: Periodo): string {
   }
   const fin = CORTE.semana - p.salto;
   const ini = fin - p.n + 1;
-  if (p.n === 1) return p.salto ? `la semana pasada (S${fin})` : `la semana del corte (S${fin})`;
-  if (p.salto) return `las ${p.n} semanas anteriores (S${ini} a S${fin})`;
-  return `las últimas ${p.n} semanas (S${ini} a S${fin})`;
+  // El número de semana siempre va con sus fechas: "S46" a secas no dice nada.
+  const fechas = rangoCorto(fechasDeSemana(ini).desde, fechasDeSemana(fin).hasta);
+  if (p.n === 1) return p.salto ? `la semana pasada (S${fin}, ${fechas})` : `la semana del corte (S${fin}, ${fechas})`;
+  if (p.salto) return `las ${p.n} semanas anteriores (S${ini} a S${fin}, ${fechas})`;
+  return `las últimas ${p.n} semanas (S${ini} a S${fin}, ${fechas})`;
 }
 
 /** Piezas resurtidas a una combinación en el periodo: su sell-in. */
@@ -920,7 +922,7 @@ function cambioSemanal(S: Combo[], donde: string): string {
   const k = cifras(S, hoy);
   const prev = k.pzPrev ?? 0;
   const cad = [...grupos(S, "cadena")].map(([n, cs]) => { const y = cifras(cs, hoy); return { n, v: variacion(y.pz, y.pzPrev ?? 0) }; }).sort((a, b) => b.v - a.v);
-  return `En la semana del corte (S${CORTE.semana}) el sell-out ${donde} fue de ${fmt(k.pz)} piezas contra ${fmt(prev)} de la semana anterior: ${signo(variacion(k.pz, prev))}.` +
+  return `En la semana del corte (S${CORTE.semana}, ${rangoDeSemana(CORTE.semana)}) el sell-out ${donde} fue de ${fmt(k.pz)} piezas contra ${fmt(prev)} de la semana anterior: ${signo(variacion(k.pz, prev))}.` +
     (cad.length > 1 ? ` Por cadena: ${cad.map((c) => `${c.n} ${signo(c.v)}`).join(", ")}.` : "") +
     (() => {
       const cc = cambioDeCorte(S);

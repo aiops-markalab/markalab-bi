@@ -8,7 +8,8 @@ import { fmt, moneyCorto } from "@/lib/engine";
    avisa de que el HTML del servidor no coincide con el del cliente. */
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
-type Punto = { et: string; a: number; b: number; pie?: string };
+/** `sub` y `sub2` son los renglones de fecha que van debajo de la etiqueta: "24–30" y "ago". */
+type Punto = { et: string; a: number; b: number; pie?: string; sub?: string; sub2?: string };
 
 /* ------------------------------------------------------------------ *
  * Dos series en el tiempo: sell-in contra sell-out
@@ -31,7 +32,9 @@ export function Lineas({
     L = 54,
     R = 64,
     T = 14,
-    B = 30;
+    // Con fecha bajo cada semana el eje ocupa tres renglones en vez de uno.
+    conFecha = datos.some((d) => d.sub),
+    B = conFecha ? 54 : 30;
   const max = Math.max(...datos.flatMap((d) => [d.a, d.b])) * 1.15 || 10;
   const iw = W - L - R,
     ih = H - T - B;
@@ -84,15 +87,20 @@ export function Lineas({
         <line x1={L} x2={W - R} y1={Y(0)} y2={Y(0)} stroke="var(--axis)" />
         {datos.map((p, i) =>
           datos.length <= 14 || i % 2 === 0 ? (
-            <text
-              key={i}
-              x={X(i)}
-              y={H - 10}
-              textAnchor="middle"
-              fontSize="10.5"
-              fill="var(--ink-3)"
-            >
-              {p.et}
+            <text key={i} x={X(i)} y={H - B + 18} textAnchor="middle" fontSize="10.5" fill="var(--ink-3)">
+              <tspan fontWeight={conFecha ? 600 : 400} fill={conFecha ? "var(--ink-2)" : "var(--ink-3)"}>
+                {p.et}
+              </tspan>
+              {p.sub ? (
+                <tspan x={X(i)} dy="13" fontSize="10" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {p.sub}
+                </tspan>
+              ) : null}
+              {p.sub2 ? (
+                <tspan x={X(i)} dy="12" fontSize="9.5">
+                  {p.sub2}
+                </tspan>
+              ) : null}
             </text>
           ) : null
         )}

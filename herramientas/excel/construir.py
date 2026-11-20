@@ -163,7 +163,8 @@ def resumen():
         b.fx(est, "G", r, f"={g}SUMIFS({R('Piezas')},{R('Estado')},$A{r}))")
         b.fx(est, "H", r, f"={g}IF({so}>0.05,$G{r}/{so},0))")
 
-    ser = b.hoja("Serie", [("Semana", 12), ("Sell-in (pzas)", 13), ("Sell-out (pzas)", 13)], {2: NUM, 3: NUM})
+    ser = b.hoja("Serie", [("Semana", 16), ("Sell-in (pzas)", 13), ("Sell-out (pzas)", 13), ("Días que abarca", 16)],
+                 {2: NUM, 3: NUM})
 
     g0 = f + 6
     b.seccion(g0, "Cómo se mueve el canal  ·  piezas")

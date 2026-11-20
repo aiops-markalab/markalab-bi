@@ -16,7 +16,7 @@
  */
 
 import {
-  CORTE, ETIQUETA_CLASE, PARAMS, PERIODO_TODO, cambioDeCorte, esPeriodoCompleto, etiquetaPeriodo, fracciones,
+  CORTE, CORTE_ANTERIOR, CORTE_RANGO, ETIQUETA_CLASE, PARAMS, PERIODO_TODO, cambioDeCorte, fechaCorta, rangoCorto, esPeriodoCompleto, etiquetaPeriodo, fracciones,
   periodoDe, porCadena, porEstado, porSucursal, serieDe,
   type Combo, type Dataset, type Filtro, type Indicadores, type Periodo,
 } from "./engine";
@@ -45,7 +45,7 @@ function subtitulo(b: Base, extra = ""): string {
   const donde = alcance(b.filtro);
   const p = periodoDeBase(b);
   const periodo = esPeriodoCompleto(p) ? "Periodo: las 12 semanas cargadas" : `Periodo: ${etiquetaPeriodo(p)}`;
-  return `Corte ${CORTE.etiqueta}  ·  ${periodo}  ·  ${donde[0].toUpperCase()}${donde.slice(1)}  ·  Umbral de ${b.filtro.umbral} semanas${extra ? `  ·  ${extra}` : ""}  ·  Generado el ${fecha}`;
+  return `Corte ${CORTE.etiqueta} (${CORTE_RANGO})  ·  ${periodo}  ·  ${donde[0].toUpperCase()}${donde.slice(1)}  ·  Umbral de ${b.filtro.umbral} semanas${extra ? `  ·  ${extra}` : ""}  ·  Generado el ${fecha}`;
 }
 
 const sufijo = (b: Base) => {
@@ -123,7 +123,9 @@ export function libroResumen(b: Base): Paquete {
 
   // La gráfica de líneas enseña siempre las doce semanas cargadas; los
   // indicadores, el periodo que esté puesto.
-  const serie = serieDe(vista, PERIODO_TODO).map((s) => [s.etiqueta, Math.round(s.sellIn), Math.round(s.sellOut)] as Celda[]);
+  const serie = serieDe(vista, PERIODO_TODO)
+    // La semana con su fecha de inicio: es lo que lee el eje de la gráfica.
+    .map((s) => [`${s.etiqueta} · ${fechaCorta(s.desde)}`, Math.round(s.sellIn), Math.round(s.sellOut), rangoCorto(s.desde, s.hasta)] as Celda[]);
   const capital = Math.round(ind.capital);
 
   return {
@@ -230,7 +232,7 @@ export function libroMapa(b: Base): Paquete {
       Datos: filasExcel(vista, periodoDeBase(b)), Estados: filasEstados, Sucursales: sucursales, "Cambio de corte": cambio,
     },
     valores: {
-      subtitulo: subtitulo(b, `Contra el corte ${CORTE.semana - 1 > 0 ? `S${CORTE.semana - 1}` : "anterior"}`),
+      subtitulo: subtitulo(b, `Contra el corte ${CORTE_ANTERIOR.etiqueta} (${CORTE_ANTERIOR.rango})`),
       umbral: filtro.umbral,
       descuento: DESCUENTO,
       tasa: TASA,

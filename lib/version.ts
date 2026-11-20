@@ -6,4 +6,4 @@
  * saber es si el sitio publicado trae el código nuevo o sigue en el anterior.
  * Sin este sello esa pregunta se contesta adivinando.
  */
-export const VERSION = "1.14";
+export const VERSION = "1.15";

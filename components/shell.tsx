@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode } from "react";
 import { useBI } from "@/lib/store";
-import { CORTE, fmt } from "@/lib/engine";
+import { CORTE, fmt, CORTE_RANGO } from "@/lib/engine";
 import { VERSION } from "@/lib/version";
 import { Filtros } from "./filtros";
 import { CopilotoFlotante } from "./copiloto-flotante";
@@ -111,6 +111,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div>
             Corte <strong style={{ color: "var(--chrome-ink)" }}>{CORTE.etiqueta}</strong>
           </div>
+          <div>Semana del {CORTE_RANGO}</div>
           <div>
             {fmt(data.sucursales.length)} sucursales · {data.colecciones.length} colecciones
           </div>

@@ -5,11 +5,13 @@ import { useBI } from "@/lib/store";
 import { Descarga, useBase } from "@/components/descarga";
 import { libroMapa } from "@/lib/libros";
 import { MapaMexico } from "@/components/mapa";
+import { MapaPleno, type Cual, type CorteMapa, type Origen } from "@/components/mapa-pleno";
 import { Tile, Chip, Mono, Drawer, Accion, Tabla, type Col } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
 import {
   CORTE,
   CORTE_ANTERIOR,
+  CORTE_RANGO,
   cambioDeCorte,
   comoEnCorteAnterior,
   fmt,
@@ -40,6 +42,12 @@ export default function Mapa() {
   const base = useBase();
   const [foco, setFoco] = useState<Foco>(null);
   const [tab, setTab] = useState<Pestana>("resueltas");
+  /** El mapa que está a pantalla completa, y desde dónde creció. */
+  const [pleno, setPleno] = useState<{ cual: Cual; origen: Origen } | null>(null);
+  const ampliar = (cual: Cual, caja: HTMLElement) => {
+    const r = caja.getBoundingClientRect();
+    setPleno({ cual, origen: { x: r.left, y: r.top, w: r.width, h: r.height } });
+  };
 
   /* El mapa de hoy y el de hace una semana, con las mismas reglas y el mismo
      umbral. Lo que cambia entre uno y otro es lo que se resolvió y lo nuevo. */
@@ -52,6 +60,28 @@ export default function Mapa() {
     [antesCombos, filtro.umbral]
   );
   const cambio = useMemo(() => cambioDeCorte(vista), [vista]);
+
+  const cortes: Record<Cual, CorteMapa> = useMemo(
+    () => ({
+      antes: {
+        titulo: "Corte anterior",
+        etiqueta: CORTE_ANTERIOR.etiqueta,
+        rango: CORTE_ANTERIOR.rango,
+        estados: estadosAnt,
+        sucursales: sucursalesAnt,
+        ...cambio.antes,
+      },
+      hoy: {
+        titulo: "Corte actual",
+        etiqueta: CORTE.etiqueta,
+        rango: CORTE_RANGO,
+        estados,
+        sucursales,
+        ...cambio.hoy,
+      },
+    }),
+    [estados, sucursales, estadosAnt, sucursalesAnt, cambio]
+  );
 
   const conAlerta = sucursales.filter((s) => s.clase !== "sano");
   const conAlertaAnt = sucursalesAnt.filter((s) => s.clase !== "sano");
@@ -192,8 +222,8 @@ export default function Mapa() {
 
   const colsCambio: Col<Combo>[] = [
     ...sucursalYModelo,
-    { t: `Antes · S${CORTE_ANTERIOR.semana}`, f: (c) => <Chip clase={c.claseAnt} /> },
-    { t: `Hoy · S${CORTE.semana}`, f: (c) => <Chip clase={c.clase} /> },
+    { t: `Antes · S${CORTE_ANTERIOR.semana} (${CORTE_ANTERIOR.rango})`, f: (c) => <Chip clase={c.claseAnt} /> },
+    { t: `Hoy · S${CORTE.semana} (${CORTE_RANGO})`, f: (c) => <Chip clase={c.clase} /> },
     { t: "Exist. antes", n: true, f: (c) => fmt(c.invAnt) },
     { t: "Exist. hoy", n: true, f: (c) => <strong>{fmt(c.inv)}</strong> },
     { t: "Sobre umbral antes", n: true, f: (c) => fmt(c.excAnt) },
@@ -269,14 +299,14 @@ export default function Mapa() {
           v={moneyCorto(cambio.hoy.capital)}
           s={`${fmt(cambio.hoy.excedente)} pzas`}
           tono="flag"
-          n={`${dif(cambio.hoy.excedente, cambio.antes.excedente, (n) => fmt(n) + " pzas")} y ${dif(cambio.hoy.capital, cambio.antes.capital, moneyCorto)} contra S${CORTE_ANTERIOR.semana}`}
+          n={`${dif(cambio.hoy.excedente, cambio.antes.excedente, (n) => fmt(n) + " pzas")} y ${dif(cambio.hoy.capital, cambio.antes.capital, moneyCorto)} contra S${CORTE_ANTERIOR.semana} (${CORTE_ANTERIOR.rango})`}
         />
         <Tile
           k="Venta perdida semanal"
           v={moneyCorto(cambio.hoy.perdida)}
           s={`${fmt(cambio.hoy.perdidaPzas)} pzas`}
           tono="flag"
-          n={`${dif(cambio.hoy.perdidaPzas, cambio.antes.perdidaPzas, (n) => fmt(n) + " pzas")} y ${dif(cambio.hoy.perdida, cambio.antes.perdida, moneyCorto)} contra S${CORTE_ANTERIOR.semana}`}
+          n={`${dif(cambio.hoy.perdidaPzas, cambio.antes.perdidaPzas, (n) => fmt(n) + " pzas")} y ${dif(cambio.hoy.perdida, cambio.antes.perdida, moneyCorto)} contra S${CORTE_ANTERIOR.semana} (${CORTE_ANTERIOR.rango})`}
         />
         <Tile
           k="Estados saturados"
@@ -291,42 +321,59 @@ export default function Mapa() {
         <h3>Corte anterior contra corte actual</h3>
         <p className="sub">
           El mismo mapa en dos semanas, con las mismas reglas y el mismo umbral. El color del estado
-          resume su situación y cada bandera es una sucursal con alerta. Clic en un estado o en una
-          bandera para ver su detalle.
+          resume su situación y cada bandera es una sucursal con alerta. Clic en cualquiera de los
+          dos mapas para verlo a pantalla completa; ahí, clic en un estado o en una bandera abre su
+          detalle.
         </p>
         <div className="mapas-2">
-          <div className="mapa-corte">
-            <div className="mapa-tit">
-              <b>Corte anterior</b> {CORTE_ANTERIOR.etiqueta}
-              <span>
-                {fmt(cambio.antes.alertas)} alertas · {fmt(cambio.antes.excedente)} pzas sobre umbral ·{" "}
-                {moneyCorto(cambio.antes.capital)}
-              </span>
-            </div>
-            <MapaMexico
-              estados={estadosAnt}
-              sucursales={sucursalesAnt}
-              maxBanderas={16}
-              onEstado={(id) => setFoco({ tipo: "estado", id })}
-              onSucursal={(clave) => setFoco({ tipo: "sucursal", clave })}
-            />
-          </div>
-          <div className="mapa-corte actual">
-            <div className="mapa-tit">
-              <b>Corte actual</b> {CORTE.etiqueta}
-              <span>
-                {fmt(cambio.hoy.alertas)} alertas · {fmt(cambio.hoy.excedente)} pzas sobre umbral ·{" "}
-                {moneyCorto(cambio.hoy.capital)}
-              </span>
-            </div>
-            <MapaMexico
-              estados={estados}
-              sucursales={sucursales}
-              maxBanderas={16}
-              onEstado={(id) => setFoco({ tipo: "estado", id })}
-              onSucursal={(clave) => setFoco({ tipo: "sucursal", clave })}
-            />
-          </div>
+          {(["antes", "hoy"] as Cual[]).map((k) => {
+            const c = cortes[k];
+            return (
+              <div
+                key={k}
+                className={`mapa-corte ${k === "hoy" ? "actual" : ""}`}
+                role="button"
+                tabIndex={0}
+                aria-label={`${c.titulo} ${c.etiqueta}, semana del ${c.rango}. Ampliar a pantalla completa`}
+                title="Clic para ver este mapa a pantalla completa"
+                onClick={(e) => ampliar(k, e.currentTarget)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    ampliar(k, e.currentTarget);
+                  }
+                }}
+              >
+                <div className="mapa-tit">
+                  <b>{c.titulo}</b> {c.etiqueta} · semana del {c.rango}
+                  <span>
+                    {fmt(c.alertas)} alertas · {fmt(c.excedente)} pzas sobre umbral · {moneyCorto(c.capital)}
+                  </span>
+                  <em className="mapa-ampliar" aria-hidden>
+                    <svg viewBox="0 0 16 16" width="12" height="12">
+                      <path
+                        d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Ampliar
+                  </em>
+                </div>
+                {/* En chico el clic amplía; el detalle se abre desde el mapa grande. */}
+                <MapaMexico
+                  estados={c.estados}
+                  sucursales={c.sucursales}
+                  maxBanderas={16}
+                  onEstado={() => {}}
+                  onSucursal={() => {}}
+                />
+              </div>
+            );
+          })}
         </div>
         {leyenda}
       </div>
@@ -334,8 +381,8 @@ export default function Mapa() {
       <div className="card">
         <h3>Qué cambió entre los dos cortes</h3>
         <p className="sub">
-          Cada combinación de tienda y modelo, como estaba en {CORTE_ANTERIOR.etiqueta} y como está en{" "}
-          {CORTE.etiqueta}. Una alerta se resuelve cuando la combinación regresa al rango.
+          Cada combinación de tienda y modelo, como estaba en {CORTE_ANTERIOR.etiqueta} (
+          {CORTE_ANTERIOR.rango}) y como está en {CORTE.etiqueta} ({CORTE_RANGO}). Una alerta se resuelve cuando la combinación regresa al rango.
         </p>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap", margin: "10px 0" }}>
           {(
@@ -387,13 +434,27 @@ export default function Mapa() {
         </div>
       </div>
 
+      {pleno ? (
+        <MapaPleno
+          cual={pleno.cual}
+          origen={pleno.origen}
+          cortes={cortes}
+          leyenda={leyenda}
+          detalleAbierto={!!foco}
+          onCambiar={(cual) => setPleno((p) => (p ? { ...p, cual } : p))}
+          onCerrar={() => setPleno(null)}
+          onEstado={(id) => setFoco({ tipo: "estado", id })}
+          onSucursal={(clave) => setFoco({ tipo: "sucursal", clave })}
+        />
+      ) : null}
+
       <Drawer
         abierto={!!foco}
         onCerrar={() => setFoco(null)}
         eyebrow={
           foco?.tipo === "estado"
-            ? `Estado · corte ${CORTE.etiqueta} contra ${CORTE_ANTERIOR.etiqueta}`
-            : `Sucursal · corte ${CORTE.etiqueta} contra ${CORTE_ANTERIOR.etiqueta}`
+            ? `Estado · corte ${CORTE.etiqueta} (${CORTE_RANGO}) contra ${CORTE_ANTERIOR.etiqueta}`
+            : `Sucursal · corte ${CORTE.etiqueta} (${CORTE_RANGO}) contra ${CORTE_ANTERIOR.etiqueta}`
         }
         titulo={tituloFoco}
         pie={

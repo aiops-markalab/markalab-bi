@@ -97,10 +97,11 @@ export const GUIAS: Guia[] = [
     id: "cortes",
     titulo: "Saber qué alertas se resolvieron contra el corte anterior",
     resumen: "El Mapa de alertas enseña el corte anterior y el actual, lado a lado.",
-    claves: ["corte anterior", "resueltas", "nuevas", "comparar cortes", "semana pasada", "versus", "atendida"],
+    claves: ["corte anterior", "resueltas", "nuevas", "comparar cortes", "semana pasada", "versus", "atendida", "pantalla completa", "ampliar", "zoom", "presentar"],
     ruta: "/mapa",
     pasos: [
       "El Mapa de alertas pinta dos mapas con las mismas reglas: el del corte anterior y el del corte actual.",
+      "Un clic en cualquiera de los dos lo amplía a pantalla completa, para presentarlo. Ahí, un clic en un estado o en una bandera abre su detalle; los botones de arriba o las flechas del teclado pasan de un corte al otro, y Esc regresa.",
       "Arriba, tres indicadores dicen cuántas alertas se resolvieron, cuántas son nuevas y cuántas siguen, con sus piezas y su monto.",
       "La tabla Qué cambió entre los dos cortes enlista cada combinación con su situación, sus piezas y su monto antes y hoy.",
       "Una alerta se resuelve cuando la combinación regresa al rango. No hay que marcarla a mano: lo dice el siguiente corte.",
@@ -232,6 +233,20 @@ export type Novedad = {
 };
 
 export const NOVEDADES: Novedad[] = [
+  {
+    fecha: "2026-11-20",
+    tipo: "Novedad",
+    titulo: "El mapa a pantalla completa",
+    cuerpo:
+      "En Mapa de alertas, un clic en cualquiera de los dos mapas lo amplía a toda la pantalla, con un acercamiento que sale desde donde estaba. Ya ampliado, un clic en un estado o en una bandera abre su detalle, y arriba se pasa del corte anterior al actual sin salir. Se cierra con Esc o con un clic fuera.",
+  },
+  {
+    fecha: "2026-11-20",
+    tipo: "Novedad",
+    titulo: "Las semanas dicen sus fechas",
+    cuerpo:
+      "Donde antes solo decía S35 o S46 ahora también dice de qué día a qué día va esa semana: en la gráfica de sell-in contra sell-out, en los dos mapas, en la barra lateral, en las respuestas de Argos y en los libros de Excel.",
+  },
   {
     fecha: "2026-11-20",
     tipo: "Novedad",

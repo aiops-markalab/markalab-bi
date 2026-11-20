@@ -2366,6 +2366,240 @@ table.pivote tr.gran td {
     grid-template-columns: 1fr;
   }
 }
+
+/* Cada mapa chico es un botón: un clic lo lleva a pantalla completa. */
+.mapa-corte[role="button"] {
+  cursor: zoom-in;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.mapa-corte[role="button"] .chartwrap path,
+.mapa-corte[role="button"] .chartwrap g[role="button"] {
+  cursor: zoom-in !important;
+}
+.mapa-corte[role="button"]:hover,
+.mapa-corte[role="button"]:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 16%, transparent);
+  transform: translateY(-1px);
+  outline: none;
+}
+.mapa-tit {
+  position: relative;
+  padding-right: 92px;
+}
+.mapa-ampliar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+}
+.mapa-corte[role="button"]:hover .mapa-ampliar {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ===========================================================================
+   El mapa a pantalla completa
+   La caja crece desde el rectángulo del mapa chico (las variables --mp-d* y
+   --mp-s* lo describen) hasta ocupar la ventana.
+   =========================================================================== */
+.mapa-pleno {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: color-mix(in srgb, #0c1a2e 62%, transparent);
+  backdrop-filter: blur(3px);
+  animation: mp-velo 0.3s ease both;
+  cursor: zoom-out;
+}
+.mp-caja {
+  position: absolute;
+  inset: var(--mp-margen, 22px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 20px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--hair);
+  background: var(--surface);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  transform-origin: 0 0;
+  animation: mp-zoom 0.42s cubic-bezier(0.2, 0.85, 0.2, 1) both;
+  cursor: default;
+  overflow: hidden;
+}
+.mapa-pleno.sale {
+  animation: mp-velo-sale 0.24s ease both;
+}
+.mapa-pleno.sale .mp-caja {
+  animation: mp-zoom-sale 0.24s cubic-bezier(0.5, 0, 0.8, 0.4) both;
+}
+@keyframes mp-zoom {
+  from {
+    transform: translate(var(--mp-dx), var(--mp-dy)) scale(var(--mp-sx), var(--mp-sy));
+    opacity: 0.35;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes mp-zoom-sale {
+  from {
+    transform: none;
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--mp-dx), var(--mp-dy)) scale(var(--mp-sx), var(--mp-sy));
+    opacity: 0;
+  }
+}
+@keyframes mp-velo {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes mp-velo-sale {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes mp-cambio {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.mp-cab {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+.mp-tit h2 {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+.mp-tit h2 span {
+  font-weight: 500;
+  color: var(--ink-2);
+  margin-left: 4px;
+}
+.mp-tit p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.mp-cifras {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+}
+.mp-cifras > div {
+  padding-left: 12px;
+  border-left: 2px solid var(--hair);
+  line-height: 1.25;
+}
+.mp-cifras b {
+  display: block;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.mp-cifras span {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.mp-acciones {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.mp-cambio {
+  display: inline-flex;
+  gap: 5px;
+}
+.mp-cambio .btn small,
+.mp-x small {
+  margin-left: 6px;
+  font-weight: 500;
+  opacity: 0.75;
+  font-size: 10.5px;
+}
+.mp-mapa {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  animation: mp-cambio 0.28s ease both;
+}
+/* El mapa conserva su proporción y llena el alto que le queda: así las
+   etiquetas flotantes, que se colocan en porcentaje, caen donde deben. */
+.mp-mapa .chartwrap {
+  margin: 0 !important;
+  width: min(100%, calc((100vh - var(--mp-margen, 22px) * 2 - 190px) * var(--mp-ar, 1.6129)));
+}
+.mp-pie .legend {
+  margin-top: 0;
+}
+.mp-pie .note {
+  margin: 4px 0 0;
+}
+@media (max-width: 900px) {
+  .mp-caja {
+    padding: 12px 12px 10px;
+  }
+  .mp-cab {
+    gap: 10px;
+  }
+  .mp-tit h2 {
+    font-size: 17px;
+  }
+  .mp-cifras {
+    gap: 12px;
+    order: 3;
+    flex-basis: 100%;
+  }
+  .mp-cifras b {
+    font-size: 15px;
+  }
+  .mp-mapa .chartwrap {
+    width: min(100%, calc((100vh - var(--mp-margen, 8px) * 2 - 290px) * var(--mp-ar, 1.6129)));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mapa-pleno,
+  .mp-caja,
+  .mp-mapa,
+  .mapa-pleno.sale,
+  .mapa-pleno.sale .mp-caja {
+    animation-duration: 0.01s;
+  }
+}
 .cuenta-tab {
   margin-left: 7px;
   padding: 1px 7px;

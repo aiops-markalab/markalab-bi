@@ -17,6 +17,8 @@ import {
   PARAMS,
   top,
   serieDe,
+  rangoCorto,
+  rangoPartido,
   etiquetaPeriodo,
   esPeriodoCompleto,
   type Combo,
@@ -45,12 +47,22 @@ export default function Resumen() {
 
   const serie = useMemo(
     () =>
-      serieDe(vista, periodo).map((s) => ({
-        et: s.etiqueta,
-        pie: s.etiqueta.startsWith("S") ? `Semana ${s.etiqueta.slice(1)} de ${CORTE.anio}` : s.etiqueta,
-        a: Math.round(s.sellIn),
-        b: Math.round(s.sellOut),
-      })),
+      serieDe(vista, periodo).map((s) => {
+        const semanal = s.etiqueta.startsWith("S");
+        const [dias, mes] = rangoPartido(s.desde, s.hasta);
+        return {
+          et: s.etiqueta,
+          // Debajo de cada semana, de qué día a qué día va. En la serie por
+          // día la etiqueta ya es la fecha y abajo va el día de la semana.
+          sub: semanal ? dias : s.dia,
+          sub2: semanal ? mes : undefined,
+          pie: semanal
+            ? `Semana ${s.etiqueta.slice(1)} · ${rangoCorto(s.desde, s.hasta)} de ${CORTE.anio}`
+            : `${s.dia} ${s.etiqueta} de ${CORTE.anio}`,
+          a: Math.round(s.sellIn),
+          b: Math.round(s.sellOut),
+        };
+      }),
     [vista, periodo]
   );
   const porDia = serie.length > 0 && !serie[0].et.startsWith("S");
@@ -190,7 +202,7 @@ export default function Resumen() {
               ? `En el periodo se resurtieron ${fmt(ind.sellIn)} piezas y se vendieron ${fmt(ind.sellOut)}: ${fmt(brecha)} piezas de más, que son las que saturan el anaquel.`
               : `En el periodo se vendieron ${fmt(ind.sellOut)} piezas y se resurtieron ${fmt(ind.sellIn)}: el desplazamiento va por delante del resurtido.`}
           </p>
-          <Lineas datos={serie} etiquetaA="Sell-in" etiquetaB="Sell-out" alto={260} />
+          <Lineas datos={serie} etiquetaA="Sell-in" etiquetaB="Sell-out" alto={284} />
           <div className="legend">
             <span>
               <i style={{ background: "var(--s1)" }} />

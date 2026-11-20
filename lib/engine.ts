@@ -727,6 +727,37 @@ export const fechaCorta = (iso: string) => {
   const [, m, d] = iso.split("-").map(Number);
   return `${d} ${MESES_CORTOS[m - 1]}`;
 };
+/** "24–30 ago", o "31 ago–6 sep" cuando el rango cruza de mes. Un solo día: "15 nov". */
+export function rangoCorto(desde: string, hasta: string): string {
+  if (desde === hasta) return fechaCorta(desde);
+  const [, m1, d1] = desde.split("-").map(Number);
+  const [, m2, d2] = hasta.split("-").map(Number);
+  return m1 === m2 ? `${d1}–${d2} ${MESES_CORTOS[m1 - 1]}` : `${fechaCorta(desde)}–${fechaCorta(hasta)}`;
+}
+/** Las dos mitades de ese rango, para escribirlo en dos renglones: "24–30" y "ago". */
+export function rangoPartido(desde: string, hasta: string): [string, string] {
+  const [, m1, d1] = desde.split("-").map(Number);
+  const [, m2, d2] = hasta.split("-").map(Number);
+  if (desde === hasta) return [String(d1), MESES_CORTOS[m1 - 1]];
+  return [`${d1}–${d2}`, m1 === m2 ? MESES_CORTOS[m1 - 1] : `${MESES_CORTOS[m1 - 1]}–${MESES_CORTOS[m2 - 1]}`];
+}
+/**
+ * De qué día a qué día va una semana del año, por su número: la S46 es del
+ * lunes 9 al domingo 15 de noviembre. Un "S46" a secas obliga a quien lee a
+ * ir a buscar un calendario.
+ */
+export function fechasDeSemana(semana: number): { desde: string; hasta: string } {
+  const fin = FIN_HISTORIA - (CORTE.semana - semana) * 7 * MS_DIA;
+  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  return { desde: iso(fin - 6 * MS_DIA), hasta: iso(fin) };
+}
+/** "9–15 nov": las fechas de una semana, por su número. */
+export const rangoDeSemana = (semana: number) => {
+  const f = fechasDeSemana(semana);
+  return rangoCorto(f.desde, f.hasta);
+};
+const DIAS_SEMANA = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
+
 /** "24 ago – 15 nov · 12 semanas" o "9 – 15 nov · 7 días". */
 export function etiquetaPeriodo(p: Periodo): string {
   const a = fechaDeDia(p.desde);
@@ -774,7 +805,16 @@ export function enPeriodo(c: Combo, f: Fracciones) {
   return { out, in: ent };
 }
 
-export type PuntoSerie = { etiqueta: string; sellIn: number; sellOut: number };
+export type PuntoSerie = {
+  etiqueta: string;
+  sellIn: number;
+  sellOut: number;
+  /** Los días que abarca el punto dentro del periodo. En una serie por día, los dos son el mismo. */
+  desde: string;
+  hasta: string;
+  /** El día de la semana, cuando la serie va por día. */
+  dia?: string;
+};
 
 /**
  * La serie de sell-in contra sell-out del alcance filtrado y del periodo.
@@ -798,6 +838,9 @@ export function serieDe(combos: Combo[], p: Periodo): PuntoSerie[] {
         etiqueta: fechaCorta(fechaDeDia(d)),
         sellOut: porSemanaOut[s] * PESO_OUT[d % 7],
         sellIn: porSemanaIn[s] * PESO_IN[d % 7],
+        desde: fechaDeDia(d),
+        hasta: fechaDeDia(d),
+        dia: DIAS_SEMANA[d % 7],
       });
     }
     return salida;
@@ -809,6 +852,9 @@ export function serieDe(combos: Combo[], p: Periodo): PuntoSerie[] {
       etiqueta: `S${CORTE.semana - (n - 1 - s)}`,
       sellOut: porSemanaOut[s] * f.out[s],
       sellIn: porSemanaIn[s] * f.in[s],
+      // Si el periodo corta la semana, las fechas son las de los días que sí cuenta.
+      desde: fechaDeDia(Math.max(s * 7, p.desde)),
+      hasta: fechaDeDia(Math.min(s * 7 + 6, p.hasta)),
     });
   }
   return salida;
@@ -1264,7 +1310,11 @@ export function comoEnCorteAnterior(combos: Combo[]): Combo[] {
 export const CORTE_ANTERIOR = {
   semana: CORTE.semana - 1,
   etiqueta: `${CORTE.anio}-S${CORTE.semana - 1}`,
+  /** Los días que abarca: "2–8 nov". */
+  rango: rangoDeSemana(CORTE.semana - 1),
 };
+/** Los días que abarca el corte vigente: "9–15 nov". */
+export const CORTE_RANGO = rangoDeSemana(CORTE.semana);
 
 /* ------------------------------------------------------------------ *
  * Utilidades de formato
