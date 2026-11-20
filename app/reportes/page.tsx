@@ -16,6 +16,7 @@
 import { useMemo, useState } from "react";
 import { useBI } from "@/lib/store";
 import { CORTE, fmt } from "@/lib/engine";
+import { filasExcel, descargarLibro } from "@/lib/excel";
 import {
   DIMENSIONES,
   MEDIDAS,
@@ -25,6 +26,7 @@ import {
   medidaPorId,
   dimensionPorId,
   aCSV,
+  aExcel,
   type Config,
   type DimensionId,
   type MedidaId,
@@ -67,6 +69,7 @@ const PLANTILLAS: Plantilla[] = [
 
 export default function Reportes() {
   const { vista } = useBI();
+  const [bajando, setBajando] = useState(false);
   const [cfg, setCfg] = useState<Config>(PLANTILLAS[0].cfg);
   const [plantilla, setPlantilla] = useState("ejecutivo");
   const [cerrados, setCerrados] = useState<Set<string>>(new Set());
@@ -115,6 +118,44 @@ export default function Reportes() {
       ...cfg,
       valores: hay ? cfg.valores.filter((v) => v !== id) : [...cfg.valores, id],
     });
+  };
+
+  /* El Excel no se arma aquí: el navegador no sabe escribir gráficas nativas.
+     Se mandan los renglones al servidor, que rellena una plantilla que ya las
+     trae, con sus fórmulas y su hoja de simulación. */
+  const descargarExcel = async () => {
+    if (bajando) return;
+    setBajando(true);
+    try {
+      await descargarLibro("corte", { Datos: filasExcel(vista) }, CORTE.etiqueta);
+    } catch {
+      alert("No se pudo generar el Excel. Vuelve a intentarlo.");
+    } finally {
+      setBajando(false);
+    }
+  };
+
+  /* El reporte que está en pantalla, con su gráfica.
+     Las columnas cambian según cómo esté configurada la tabla, así que los
+     encabezados viajan junto con los datos: la plantilla no puede traerlos
+     escritos. La gráfica sí es fija --dos columnas, veinte renglones-- y por
+     eso sobrevive aunque el reporte cambie de forma. */
+  const descargarReporte = async () => {
+    if (bajando) return;
+    setBajando(true);
+    try {
+      const x = aExcel(r, cfg);
+      await descargarLibro(
+        "reporte",
+        { Reporte: x.filas, "Gráfica": x.grafica },
+        `${CORTE.etiqueta}_${plantilla || "reporte"}`,
+        { Reporte: x.encabezados, "Gráfica": ["Concepto", x.medida] }
+      );
+    } catch {
+      alert("No se pudo generar el Excel. Vuelve a intentarlo.");
+    } finally {
+      setBajando(false);
+    }
   };
 
   const descargar = () => {
@@ -169,8 +210,14 @@ export default function Reportes() {
             <span className="note" style={{ margin: 0 }}>
               {fmt(r.filas.length)} renglones · {CORTE.etiqueta}
             </span>
-            <button className="btn ghost sm" onClick={descargar}>
-              Descargar CSV
+            <button className="btn sm" onClick={descargarReporte} disabled={bajando}>
+              {bajando ? "Armando Excel" : "Excel con gráfica"}
+            </button>
+            <button className="btn ghost sm" onClick={descargarExcel} disabled={bajando}>
+              Con simulador
+            </button>
+            <button className="btn ghost sm" onClick={descargar} title="Datos crudos, sin formato ni gráficas">
+              CSV
             </button>
             <button
               className={`btn ghost sm ${panel ? "on" : ""}`}

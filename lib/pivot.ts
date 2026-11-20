@@ -560,3 +560,78 @@ export function aCSV(r: Resultado, cfg: Config): string {
 
   return "﻿" + lineas.join("\r\n");
 }
+
+/* ------------------------------------------------------------------ *
+ * La tabla a Excel
+ * ------------------------------------------------------------------ */
+
+/**
+ * La misma tabla, pero en la forma que espera la plantilla `reporte.xlsx`.
+ *
+ * Un CSV no es una salida para un director: es un archivo de texto con punto
+ * y coma. Esto devuelve lo que hace falta para armar un libro con la tabla
+ * formateada y una gráfica nativa.
+ *
+ * La gráfica se alimenta de una tabla aparte, de dos columnas y veinte
+ * renglones fijos, porque el reporte cambia de forma según cómo lo configure
+ * el usuario y una gráfica no puede apuntar a un rango que no sabe de qué
+ * tamaño es. Veinte es lo que cabe en una lámina sin que las barras se
+ * conviertan en rayas.
+ */
+export function aExcel(
+  r: Resultado,
+  cfg: Config
+): {
+  encabezados: string[];
+  filas: (string | number | null)[][];
+  grafica: (string | number | null)[][];
+  medida: string;
+} {
+  const dims = cfg.filas.slice(0, 3).map(dimensionPorId);
+  const meds = cfg.valores.map(medidaPorId);
+
+  const encabezados = [...dims.map((d) => d.nombre)];
+  for (const col of r.columnas) {
+    for (const m of meds) {
+      encabezados.push(col.etiqueta ? `${col.etiqueta} · ${m.nombre}` : m.nombre);
+    }
+  }
+
+  const renglon = (ruta: string[], celdas: Map<string, Acumulado>) => {
+    const campos: (string | number | null)[] = dims.map((_, i) => ruta[i] ?? "");
+    for (const col of r.columnas) {
+      const a = celdas.get(col.clave) ?? vacio();
+      for (const m of meds) campos.push(crudo(m, valor(m, a)));
+    }
+    return campos;
+  };
+
+  const filas = r.filas.map((f) => renglon(f.ruta, f.celdas));
+  filas.push(renglon(dims.map(() => "Total"), r.total));
+
+  // La gráfica toma la primera medida en pesos que haya, y si no hay ninguna,
+  // la primera que sea. Un director mira el dinero antes que las piezas, y un
+  // reporte ejecutivo suele traer las dos cosas: graficar las piezas porque
+  // quedaron a la izquierda es dejar la decisión al azar del orden.
+  const primera = meds.find((m) => m.formato === "dinero") ?? meds[0];
+  const col0 = r.columnas[0];
+  const hojas = r.filas.filter((f) => !f.tieneHijos);
+  const base = hojas.length ? hojas : r.filas;
+  const grafica = base
+    .map((f) => {
+      const a = f.celdas.get(col0?.clave ?? "") ?? f.celdas.get("") ?? vacio();
+      return [f.ruta.filter(Boolean).join(" · "), crudo(primera, valor(primera, a))] as [
+        string,
+        number,
+      ];
+    })
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .slice(0, 20);
+
+  return {
+    encabezados,
+    filas,
+    grafica,
+    medida: col0?.etiqueta ? `${col0.etiqueta} · ${primera.nombre}` : primera.nombre,
+  };
+}
