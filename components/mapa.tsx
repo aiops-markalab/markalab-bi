@@ -103,12 +103,15 @@ export function MapaMexico({
   sucursales,
   onEstado,
   onSucursal,
+  maxBanderas = 26,
 }: {
   estados: ResumenEstado[];
   sucursales: ResumenSucursal[];
   onEstado: (id: string) => void;
   onSucursal: (clave: string) => void;
   onNota?: (n: string) => void;
+  /** Cuántas banderas caben sin encimarse. Dos mapas lado a lado llevan menos. */
+  maxBanderas?: number;
 }) {
   const [hoverEstado, setHoverEstado] = useState<string | null>(null);
   const [hoverSuc, setHoverSuc] = useState<string | null>(null);
@@ -135,8 +138,8 @@ export function MapaMexico({
       (a, b) => b.capital + b.perdida * 4 - (a.capital + a.perdida * 4)
     );
     const estadosPresentes = new Set(conAlerta.map((s) => s.sucursal.estadoId));
-    return estadosPresentes.size <= 3 ? ordenadas : ordenadas.slice(0, 26);
-  }, [conAlerta]);
+    return estadosPresentes.size <= 3 ? ordenadas : ordenadas.slice(0, maxBanderas);
+  }, [conAlerta, maxBanderas]);
   const banderas = useMemo(() => colocar(visibles, centroides), [visibles, centroides]);
   const ocultas = conAlerta.length - visibles.length;
 
@@ -285,19 +288,27 @@ export function MapaMexico({
           </div>
           <div className="r">
             <span>Piezas en canal</span>
-            <b>{fmt(estadoHover.inv)}</b>
+            <b>{fmt(estadoHover.inv)} pzas</b>
           </div>
           <div className="r">
             <span>Cobertura</span>
             <b>{estadoHover.cob > 50 ? "∞" : fmt(estadoHover.cob, 1)} sem</b>
           </div>
           <div className="r">
+            <span>Piezas sobre umbral</span>
+            <b>{fmt(estadoHover.exc)} pzas</b>
+          </div>
+          <div className="r">
+            <span>Capital parado</span>
+            <b>{moneyCorto(estadoHover.capital)}</b>
+          </div>
+          <div className="r">
             <span>Quiebres</span>
             <b>{fmt(estadoHover.quiebres)}</b>
           </div>
           <div className="r">
-            <span>Impacto</span>
-            <b>{moneyCorto(estadoHover.impacto)}</b>
+            <span>Venta perdida</span>
+            <b>{moneyCorto(estadoHover.perdida)} /sem</b>
           </div>
           <div className="r">
             <span>Estado</span>
@@ -321,19 +332,27 @@ export function MapaMexico({
           </div>
           <div className="r">
             <span>Piezas en canal</span>
-            <b>{fmt(sucHover.suc.inv)}</b>
+            <b>{fmt(sucHover.suc.inv)} pzas</b>
           </div>
           <div className="r">
             <span>Cobertura</span>
             <b>{sucHover.suc.cob > 50 ? "∞" : fmt(sucHover.suc.cob, 1)} sem</b>
           </div>
           <div className="r">
-            <span>Quiebres</span>
-            <b>{fmt(sucHover.suc.quiebres)}</b>
+            <span>Piezas sobre umbral</span>
+            <b>{fmt(sucHover.suc.exc)} pzas</b>
           </div>
           <div className="r">
             <span>Capital parado</span>
             <b>{moneyCorto(sucHover.suc.capital)}</b>
+          </div>
+          <div className="r">
+            <span>Quiebres</span>
+            <b>{fmt(sucHover.suc.quiebres)}</b>
+          </div>
+          <div className="r">
+            <span>Venta perdida</span>
+            <b>{moneyCorto(sucHover.suc.perdida)} /sem</b>
           </div>
           <div className="r">
             <span>Estado</span>

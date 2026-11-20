@@ -19,7 +19,7 @@ import {
   fmt,
   money,
   moneyCorto,
-  traslados,
+  cambioDeCorte,
   porEstado,
   porSucursal,
   type Combo,
@@ -41,6 +41,8 @@ export type Hallazgo = {
   regla: string;
   /** Impacto en pesos. */
   valor: number;
+  /** Las piezas detrás de ese monto, cuando el hallazgo se mide en piezas. */
+  piezas?: number;
   /** Unidad de lo que se gana o se deja de perder. */
   unidad: "recuperable" | "liberable" | "en riesgo";
   area: "Inventario" | "Logística" | "Comercial" | "Datos" | "Planeación";
@@ -82,32 +84,34 @@ export function analizar(
       // doscientos mil pesos parados no compite con uno de siete millones.
       severidad: e.capital >= 2_000_000 ? "critica" : e.capital >= 500_000 ? "alta" : "media",
       titulo: `${e.estado.nombre} está saturado`,
-      cuerpo: `${fmt(e.inv)} piezas en canal para un desplazamiento de ${fmt(e.so, 1)} por semana: ${fmt(e.cob, 1)} semanas de cobertura contra un umbral de ${umbral}. Son ${moneyCorto(e.capital)} de capital parado a costo.`,
-      accion: `Suspender embarques a ${e.estado.nombre} hasta que la cobertura baje del umbral, y revisar con el comprador el plan de los próximos dos meses antes de comprometer más piezas.`,
+      cuerpo: `${fmt(e.inv)} piezas en canal para un desplazamiento de ${fmt(e.so, 1)} por semana: ${fmt(e.cob, 1)} semanas de cobertura contra un umbral de ${umbral}. Sobran ${fmt(e.exc)} piezas, que son ${moneyCorto(e.capital)} de capital parado, a precio de venta a la cadena.`,
+      accion: `Suspender el resurtido a ${e.estado.nombre} hasta que la cobertura baje del umbral, y revisar con el comprador el plan de los próximos dos meses antes de comprometer más piezas.`,
       regla: `Cobertura del estado (${fmt(e.cob, 1)} sem) por encima de ${umbral} × 1.45 = ${fmt(umbral * 1.45, 1)} sem`,
       valor: e.capital,
+      piezas: e.exc,
       unidad: "liberable",
       area: "Inventario",
     });
   }
 
-  /* R2 · Traslados: mover lo pagado antes de embarcar */
+  /* R2 · Resurtido en camino hacia donde ya sobra */
   const sobre = combos.filter((c) => c.clase === "alto" || c.clase === "saturado");
-  const mover = traslados(sobre, combos, 12);
-  if (mover.length) {
-    const piezas = mover.reduce((a, t) => a + t.piezas, 0);
-    const recupera = mover.reduce((a, t) => a + t.recupera, 0);
-    const flete = mover.reduce((a, t) => a + t.costo, 0);
+  const enCamino = sobre.filter((c) => c.tr > 0);
+  if (enCamino.length >= 3) {
+    const piezas = enCamino.reduce((a, c) => a + c.tr, 0);
+    const monto = enCamino.reduce((a, c) => a + c.tr * c.costo, 0);
+    const peor = [...enCamino].sort((a, b) => b.tr * b.costo - a.tr * a.costo)[0];
     h.push({
-      id: "traslados",
+      id: "transito-saturado",
       severidad: "alta",
-      titulo: `${mover.length} traslados pagan su flete`,
-      cuerpo: `Hay ${fmt(piezas)} piezas excedentes que resuelven un quiebre del mismo modelo en otra tienda de la misma cadena. El flete total es ${money(flete)} contra ${money(recupera)} de venta perdida semanal que deja de correr.`,
-      accion: `Autorizar los traslados antes de liberar el siguiente embarque. El primero es ${mover[0].piezas} piezas de ${mover[0].origen.sucursal.plaza} a ${mover[0].destino.sucursal.plaza} del modelo ${mover[0].origen.modelo.sku}.`,
-      regla: `Mismo SKU · excedente ≥ 3 pzas en origen · destino con cobertura < 2.5 sem · cubre ≥ 1.5 sem en destino · misma cadena`,
-      valor: recupera * 4 - flete,
-      unidad: "recuperable",
-      area: "Logística",
+      titulo: `${fmt(piezas)} piezas en tránsito van a tiendas que ya rebasan el umbral`,
+      cuerpo: `Son ${fmt(enCamino.length)} combinaciones de tienda y modelo que ya tienen inventario de más y todavía van a recibir producto: ${fmt(piezas)} piezas, ${moneyCorto(monto)} a precio de venta a la cadena. La mayor es ${peor.modelo.sku} hacia ${peor.sucursal.plaza}, con ${fmt(peor.tr)} piezas en camino y ${peor.cob > 50 ? "sin desplazamiento" : fmt(peor.cob, 1) + " semanas de cobertura"}.`,
+      accion: `Revisar esos pedidos antes de que se entreguen. Lo que todavía no sale de bodega conviene dirigirlo a las combinaciones en quiebre del mismo modelo.`,
+      regla: `Piezas en tránsito > 0 · cobertura de la combinación por encima del umbral de ${umbral} semanas`,
+      valor: monto,
+      piezas,
+      unidad: "en riesgo",
+      area: "Planeación",
     });
   }
 
@@ -129,10 +133,11 @@ export function analizar(
       id: `quiebre-${modPeor.k}`,
       severidad: "critica",
       titulo: `${m.sku} agotado en ${modPeor.v.length} tiendas`,
-      cuerpo: `${m.nombre}, de la colección ${col}. Es la referencia con mayor venta perdida del corte: existencia en cero con desplazamiento probado en ${ciudades.join(", ")}${ciudades.length >= 4 ? " y otras ciudades" : ""}. Son ${money(modPeor.perdida)} por semana.`,
-      accion: `Priorizar ${m.sku} en el siguiente embarque por encima de cualquier referencia saturada. No sustituirlo con otro modelo de ${col}: el consumidor que pidió este no se lleva otro.`,
+      cuerpo: `${m.nombre}, de la colección ${col}. Es la referencia con mayor venta perdida del corte: existencia en cero con desplazamiento probado en ${ciudades.join(", ")}${ciudades.length >= 4 ? " y otras ciudades" : ""}. Son ${fmt(modPeor.v.reduce((a, c) => a + c.so, 0))} piezas y ${money(modPeor.perdida)} por semana. El resurtido sugerido es de ${fmt(modPeor.v.reduce((a, c) => a + c.sug, 0))} piezas.`,
+      accion: `Priorizar ${m.sku} en el siguiente resurtido por encima de cualquier referencia saturada. No sustituirlo con otro modelo de ${col}: el consumidor que pidió este no se lleva otro.`,
       regla: `Existencia = 0 y desplazamiento > 0.15 pzas/sem en ≥ 3 sucursales del mismo SKU`,
       valor: modPeor.perdida * 52,
+      piezas: modPeor.v.reduce((a, c) => a + c.so, 0) * 52,
       unidad: "recuperable",
       area: "Comercial",
     });
@@ -149,10 +154,11 @@ export function analizar(
       id: "mal-asignado",
       severidad: "alta",
       titulo: `Alta gama colocada donde no rota`,
-      cuerpo: `${malAsignado.length} referencias de alta gama con inventario y sin una sola pieza desplazada en la ventana, en ${plazas.length} ciudades: ${plazas.slice(0, 3).join(", ")}. Entre ellas ${[...new Set(malAsignado.map((c) => c.modelo.sku))].slice(0, 3).join(", ")}. ${moneyCorto(cap)} a costo inmovilizados.`,
-      accion: `No es un problema de inventario sino de asignación. Replegar estas piezas a las plazas de ticket alto o liquidarlas, y sacar la alta gama del surtido base de estas tiendas.`,
+      cuerpo: `${malAsignado.length} referencias de alta gama con inventario y sin una sola pieza desplazada en la ventana, en ${plazas.length} ciudades: ${plazas.slice(0, 3).join(", ")}. Entre ellas ${[...new Set(malAsignado.map((c) => c.modelo.sku))].slice(0, 3).join(", ")}. Son ${fmt(malAsignado.reduce((a, c) => a + c.inv, 0))} piezas y ${moneyCorto(cap)} inmovilizados, a precio de venta a la cadena.`,
+      accion: `No es un problema de inventario sino de asignación. Dejar de resurtir alta gama a estas tiendas, sacarla de su surtido base y acordar con la cadena la salida de lo que ya tiene.`,
       regla: `Segmento alta gama · existencia > 0 · desplazamiento < 0.03 pzas/sem durante toda la ventana`,
       valor: cap,
+      piezas: malAsignado.reduce((a, c) => a + c.inv, 0),
       unidad: "liberable",
       area: "Comercial",
     });
@@ -167,26 +173,29 @@ export function analizar(
       id: "envejecido",
       severidad: "media",
       titulo: `${fmt(viejo.reduce((a, c) => a + c.inv, 0))} piezas con más de un año en canal`,
-      cuerpo: `Concentradas en ${col.slice(0, 2).join(" y ")}. Cada semana que pasa valen menos y ocupan un espacio de anaquel que el comprador puede reasignar a otra marca.`,
-      accion: `Negociar una liquidación dirigida con descuento escalonado. El modelo de planeación tiene el supuesto de liquidación para medir el efecto antes de comprometerlo.`,
+      cuerpo: `Concentradas en ${col.slice(0, 2).join(" y ")}: ${moneyCorto(cap)} a precio de venta a la cadena. Cada semana que pasa valen menos y ocupan un espacio de anaquel que el comprador puede reasignar a otra marca.`,
+      accion: `Acordar con la cadena una liquidación dirigida con descuento escalonado. El modelo de planeación tiene el supuesto de liquidación para medir el efecto antes de comprometerlo.`,
       regla: `Días en canal > 360 con existencia > 0`,
       valor: cap,
+      piezas: viejo.reduce((a, c) => a + c.inv, 0),
       unidad: "liberable",
       area: "Inventario",
     });
   }
 
-  /* R6 · Sobre-embarque sistemático */
+  /* R6 · Se resurte más de lo que se vende */
   if (ind.sellIn > 0 && ind.sellOut / ind.sellIn < 0.9) {
     const brecha = ind.sellIn - ind.sellOut;
+    const precioMedio = ind.sellInMonto / ind.sellIn;
     h.push({
-      id: "sobre-embarque",
+      id: "sobre-resurtido",
       severidad: "critica",
-      titulo: `Se embarca ${fmt((1 - ind.sellOut / ind.sellIn) * 100, 0)}% más de lo que se desplaza`,
-      cuerpo: `${fmt(brecha)} piezas de diferencia en doce semanas. El patrón se concentra en la última semana de cada mes, lo que apunta a cierre de cuota y no a demanda.`,
-      accion: `Atar el embarque al desplazamiento de las ocho semanas previas por tienda y colección, en vez de a la cuota mensual. Es el cambio que corta la saturación en origen.`,
+      titulo: `Se resurte ${fmt((ind.sellIn / ind.sellOut - 1) * 100, 0)}% más de lo que se desplaza`,
+      cuerpo: `En el periodo entraron ${fmt(ind.sellIn)} piezas a las cadenas y se vendieron ${fmt(ind.sellOut)}: ${fmt(brecha)} piezas de diferencia, ${moneyCorto(brecha * precioMedio)} a precio de venta a la cadena. El patrón se concentra en la última semana de cada mes, lo que apunta a cierre de cuota y no a demanda.`,
+      accion: `Atar el resurtido al desplazamiento de las ocho semanas previas por tienda y modelo, en vez de a la cuota mensual. Es el cambio que corta la saturación en origen.`,
       regla: `Índice de desplazamiento (sell-out ÷ sell-in) por debajo de 90%`,
-      valor: brecha * 2600,
+      valor: brecha * precioMedio,
+      piezas: brecha,
       unidad: "en riesgo",
       area: "Planeación",
     });
@@ -216,7 +225,7 @@ export function analizar(
       severidad: "oportunidad",
       titulo: `${sanos.length} estados operando dentro del umbral`,
       cuerpo: `${sanos.slice(0, 3).map((e) => e.estado.nombre).join(", ")} sostienen cobertura en rango sin quiebres relevantes. Su mezcla de surtido es la referencia replicable.`,
-      accion: `Tomar el surtido de estas plazas como plantilla para reasignar las saturadas, en vez de diseñar un modelo nuevo.`,
+      accion: `Tomar el surtido de estas plazas como plantilla de resurtido para las saturadas, en vez de diseñar un modelo nuevo.`,
       regla: `Cobertura ≤ umbral · menos del 30% de combinaciones sobre umbral · menos de 2 quiebres`,
       valor: 0,
       unidad: "recuperable",
@@ -237,6 +246,25 @@ export function analizar(
       valor: 0,
       unidad: "en riesgo",
       area: "Datos",
+    });
+  }
+
+  /* R10 · Qué cambió contra el corte anterior */
+  const cc = cambioDeCorte(combos);
+  if (cc.resueltas.length + cc.nuevas.length > 0) {
+    const empeora = cc.nuevas.length > cc.resueltas.length;
+    h.push({
+      id: "cambio-corte",
+      severidad: empeora ? "alta" : "oportunidad",
+      titulo: `${fmt(cc.nuevas.length)} alertas nuevas y ${fmt(cc.resueltas.length)} resueltas contra el corte anterior`,
+      cuerpo: `El corte anterior cerró con ${fmt(cc.antes.alertas)} combinaciones en alerta y este con ${fmt(cc.hoy.alertas)}. Las piezas sobre el umbral pasaron de ${fmt(cc.antes.excedente)} a ${fmt(cc.hoy.excedente)}, y la venta perdida por semana de ${fmt(cc.antes.perdidaPzas)} a ${fmt(cc.hoy.perdidaPzas)} piezas (${moneyCorto(cc.antes.perdida)} a ${moneyCorto(cc.hoy.perdida)}).`,
+      accion: empeora
+        ? `Revisar primero las alertas nuevas: son las que todavía se pueden frenar con el siguiente resurtido. El mapa las enlista junto a las que se resolvieron.`
+        : `Lo que se resolvió confirma que el criterio de resurtido funciona. El mapa enlista las alertas resueltas y las que siguen abiertas.`,
+      regla: `Combinación en alerta en un corte y en rango en el otro, con el mismo umbral de ${umbral} semanas`,
+      valor: Math.abs(cc.hoy.capital + cc.hoy.perdida * 4 - cc.antes.capital - cc.antes.perdida * 4),
+      unidad: "en riesgo",
+      area: "Planeación",
     });
   }
 
@@ -284,8 +312,15 @@ export function construirContexto(
     corte,
     umbral,
     indicadores: {
+      // Los nombres de las dos primeras se conservan por el workflow; el
+      // periodo es el que esté puesto, que por omisión son las doce semanas.
       sellOut12Semanas: ind.sellOut,
       sellIn12Semanas: ind.sellIn,
+      diasDelPeriodo: ind.dias,
+      sellOutMontoMXN: Math.round(ind.sellOutMonto),
+      sellInMontoMXN: Math.round(ind.sellInMonto),
+      piezasSobreUmbral: ind.excedente,
+      ventaPerdidaSemanalPiezas: Math.round(ind.perdidaPzas),
       indiceDesplazamiento: ind.sellIn ? Number(((ind.sellOut / ind.sellIn) * 100).toFixed(1)) : 0,
       inventarioEnCanal: ind.inventario,
       coberturaPromedioSemanas: Number(ind.cobertura.toFixed(1)),

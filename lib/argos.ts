@@ -38,7 +38,7 @@ let caidoHasta = 0;
 const PAUSA = 3 * 60 * 1000;
 
 export function useArgos() {
-  const { data, vista, ind, filtro, bitacora, escenarios, escenarioId } = useBI();
+  const { data, vista, ind, filtro, bitacora, escenarios, escenarioId, periodo } = useBI();
   const [modelo, setModelo] = useState<"directo" | "n8n" | null>(camino ?? null);
   const hilo = useRef<Hilo | undefined>(undefined);
 
@@ -66,6 +66,7 @@ export function useArgos() {
     if (!a) return undefined;
     return {
       nombre: a.e.nombre,
+      unidades: a.p.unidades,
       ingreso: a.p.ingreso,
       margenBruto: a.p.margenBruto,
       margenPct: a.p.margenPct,
@@ -73,7 +74,7 @@ export function useArgos() {
       ebitdaPct: a.p.ebitdaPct,
       otros: todas
         .filter((t) => t !== a)
-        .map((t) => ({ nombre: t.e.nombre, ebitda: t.p.ebitda, ebitdaPct: t.p.ebitdaPct, ingreso: t.p.ingreso })),
+        .map((t) => ({ nombre: t.e.nombre, ebitda: t.p.ebitda, ebitdaPct: t.p.ebitdaPct, ingreso: t.p.ingreso, unidades: t.p.unidades })),
     };
   }, [escenarios, escenarioId, vista, ind.perdida, ind.capital]);
 
@@ -86,8 +87,9 @@ export function useArgos() {
       umbral: filtro.umbral,
       alcance: alcance(filtro),
       plan,
+      periodo,
     }),
-    [vista, data, hallazgos, filtro, plan]
+    [vista, data, hallazgos, filtro, plan, periodo]
   );
 
   const preguntar = useCallback(

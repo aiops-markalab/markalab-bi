@@ -17,7 +17,7 @@
 import { useMemo, useState } from "react";
 import { useBI } from "@/lib/store";
 import { Tile, Mono, Tabla, type Col } from "@/components/ui";
-import { CORTE, fmt, moneyCorto } from "@/lib/engine";
+import { CORTE, enPeriodo, etiquetaPeriodo, fmt, fracciones, moneyCorto } from "@/lib/engine";
 import { fuenteActiva } from "@/lib/fuente";
 import { MARCAS, MODELOS, COLECCIONES, marcaPorId, type Modelo } from "@/lib/catalog";
 
@@ -29,11 +29,13 @@ type FilaCadena = {
   reportan: number;
   skus: number;
   piezas: number;
+  monto: number;
   ultima: string;
 };
 
 export default function Carga() {
-  const { data, vista, ind } = useBI();
+  const { data, vista, ind, periodo } = useBI();
+  const frac = useMemo(() => fracciones(periodo), [periodo]);
   const [busca, setBusca] = useState("");
   const fuente = fuenteActiva();
 
@@ -49,6 +51,7 @@ export default function Carga() {
         reportan: sucs.filter((s) => s.reporta).length,
         skus: new Set(combos.map((c) => c.modelo.sku)).size,
         piezas: combos.reduce((a, c) => a + c.inv, 0),
+        monto: combos.reduce((a, c) => a + c.inv * c.costo, 0),
         ultima: CORTE.fecha,
       };
     });
@@ -66,7 +69,18 @@ export default function Carga() {
         segmento: col.segmento,
         tiendas: new Set(combos.map((c) => c.sucursal.clave)).size,
         piezas: combos.reduce((a, c) => a + c.inv, 0),
-        venta: combos.reduce((a, c) => a + c.so * 8 * c.precio, 0),
+        monto: combos.reduce((a, c) => a + c.inv * c.costo, 0),
+        ...combos.reduce(
+          (a, c) => {
+            const v = enPeriodo(c, frac);
+            a.out += v.out;
+            a.venta += v.out * c.precio;
+            a.in += v.in;
+            a.inMonto += v.in * c.costo;
+            return a;
+          },
+          { out: 0, venta: 0, in: 0, inMonto: 0 }
+        ),
       };
     });
     if (!q) return lista.sort((a, b) => b.venta - a.venta);
@@ -77,7 +91,7 @@ export default function Carga() {
           .includes(q)
       )
       .sort((a, b) => b.venta - a.venta);
-  }, [vista, busca]);
+  }, [vista, busca, frac]);
 
   const cols: Col<(typeof modelos)[number]>[] = [
     {
@@ -92,8 +106,12 @@ export default function Carga() {
     { t: "Género", f: (m) => m.genero },
     { t: "Material", f: (m) => m.material },
     { t: "Tiendas", n: true, f: (m) => fmt(m.tiendas) },
-    { t: "Piezas", n: true, f: (m) => fmt(m.piezas) },
-    { t: "Venta 8 sem", n: true, f: (m) => moneyCorto(m.venta) },
+    { t: "Exist. (pzas)", n: true, f: (m) => fmt(m.piezas) },
+    { t: "Exist. $", n: true, f: (m) => moneyCorto(m.monto) },
+    { t: "Sell-out (pzas)", n: true, f: (m) => fmt(m.out) },
+    { t: "Sell-out $", n: true, f: (m) => moneyCorto(m.venta) },
+    { t: "Sell-in (pzas)", n: true, f: (m) => fmt(m.in) },
+    { t: "Sell-in $", n: true, f: (m) => moneyCorto(m.inMonto) },
   ];
 
   const totalSuc = data.sucursales.length;
@@ -115,7 +133,8 @@ export default function Carga() {
         <Tile
           k="Puntos de venta"
           v={fmt(totalSuc)}
-          n={`${fmt(reportan)} entregan sell-out`}
+          s={`${fmt(ind.inventario)} pzas · ${moneyCorto(ind.inventarioMonto)}`}
+          n={`${fmt(reportan)} entregan sell-out. Existencia en el alcance`}
         />
         <Tile
           k="Productos mapeados"
@@ -187,12 +206,12 @@ export default function Carga() {
                   <span className="note" style={{ margin: 0 }}>
                     Última venta {c.ultima}
                   </span>
-                  <span className="num" style={{ minWidth: 86, textAlign: "right" }}>
-                    {fmt(c.piezas)} pzas
+                  <span className="num" style={{ minWidth: 150, textAlign: "right" }}>
+                    {fmt(c.piezas)} pzas · {moneyCorto(c.monto)}
                   </span>
                   <span className={`chip ${pct === 100 ? "sano" : pct >= 90 ? "alto" : "saturado"}`}>
                     <b aria-hidden>●</b>
-                    {fmt(pct, 0)}% reporta
+                    {fmt(c.reportan)} de {fmt(c.sucursales)} reportan ({fmt(pct, 0)}%)
                   </span>
                 </div>
               </div>
@@ -201,7 +220,7 @@ export default function Carga() {
         </div>
         <p className="note">
           Una tienda que no entrega sell-out muestra existencia pero no cobertura: sin
-          denominador no hay cálculo, y queda fuera del excedente y de los traslados.
+          denominador no hay cálculo, y queda fuera del excedente y del resurtido sugerido.
         </p>
       </div>
 
@@ -209,7 +228,8 @@ export default function Carga() {
         <h3>Maestro de productos</h3>
         <p className="sub">
           {fmt(MODELOS.length)} referencias de {MARCAS.length} marcas y{" "}
-          {COLECCIONES.length} colecciones, con los niveles por los que compra la cadena.
+          {COLECCIONES.length} colecciones, con los niveles por los que compra la cadena. Sell-out
+          y sell-in son del periodo: {etiquetaPeriodo(periodo)}.
         </p>
         <label className="sel" style={{ margin: "12px 0", maxWidth: 360 }}>
           <span>Buscar en todas las columnas</span>

@@ -14,7 +14,6 @@ import {
   fmt,
   moneyCorto,
   porEstado,
-  traslados,
   type Combo,
   type Filtro,
   type Indicadores,
@@ -78,7 +77,7 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
           ? `Estás viendo el mapa sobre ${donde}. De ${fmt(estados.length)} estados con presencia, ${fmt(rojos.length)} están en alerta, y el de mayor impacto es ${top.estado.nombre} con ${moneyCorto(top.capital + top.perdida * 4)} entre capital parado y venta en riesgo. ¿Te digo por dónde empezar?`
           : `Estás viendo el mapa sobre ${donde}, y con estos filtros no queda ningún estado con alerta. ¿Quieres que lo revise sin filtros?`,
         sugeridas: [
-          "¿Qué estado atiendo primero?",
+          "¿Qué cambió respecto de la semana pasada?",
           "¿Qué estados tienen más capital parado?",
           "¿Cuántos quiebres hay por estado?",
         ],
@@ -86,20 +85,21 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
     }
 
     case "/ejecucion": {
-      const t = traslados(vista, vista);
-      // El traslado se mide por lo que deja de perderse en doce meses, menos
-      // lo que cuesta moverlo. Es la cifra honesta, no la bruta.
-      const recupera = t.reduce((a, x) => a + x.recupera * 52 - x.costo, 0);
+      const sobre = vista.filter((c) => c.clase === "alto" || c.clase === "saturado");
+      const qui = vista.filter((c) => c.clase === "quiebre");
+      const exc = sobre.reduce((a, c) => a + c.exc, 0);
+      const sug = qui.reduce((a, c) => a + c.sug, 0);
       return {
         clave: "ejecucion",
         titulo: "Qué atender",
-        saludo: t.length
-          ? `Estás en las decisiones de la semana sobre ${donde}. Hay ${fmt(t.length)} traslados posibles que mueven ${moneyCorto(recupera)} sin comprometer dinero nuevo. ¿Los reviso contigo en orden?`
-          : `Estás en las decisiones de la semana sobre ${donde}. Con estos filtros no hay traslados posibles: o no hay excedente, o no coincide el modelo. ¿Te explico qué más se puede hacer?`,
+        saludo:
+          sobre.length || qui.length
+            ? `Estás en las decisiones de la semana sobre ${donde}. Hay ${fmt(sobre.length)} combinaciones a las que no conviene resurtir, con ${fmt(exc)} piezas de más, y ${fmt(qui.length)} en quiebre que piden ${fmt(sug)} piezas. ¿Las reviso contigo en orden?`
+            : `Estás en las decisiones de la semana sobre ${donde}. Con estos filtros nada rebasa el umbral ni está en quiebre. ¿Reviso otro alcance?`,
         sugeridas: [
           "¿Qué tres cosas haría esta semana si solo pudiera hacer tres?",
-          "¿Por qué no puedo mover esta pieza a la otra cadena?",
-          "¿Qué traslados me convienen?",
+          "¿Cuánto resurtido se sugiere por colección?",
+          "¿Qué modelos tienen más piezas sobre el umbral?",
         ],
       };
     }
@@ -121,11 +121,11 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
       return {
         clave: "planeacion",
         titulo: "Escenarios",
-        saludo: `Estás moviendo supuestos${d.escenario ? ` en el escenario «${d.escenario}»` : ""}. Lo que cambies aquí se propaga hasta EBITDA. ¿Quieres que te diga qué supuesto mueve más el resultado?`,
+        saludo: `Estás moviendo supuestos${d.escenario ? ` en el escenario «${d.escenario}»` : ""}. El plan se calcula sobre sell-in, y lo que cambies aquí se propaga hasta EBITDA. ¿Quieres que te diga cómo queda el escenario?`,
         sugeridas: [
           "¿Cuál es el EBITDA del escenario?",
           "Compara los escenarios.",
-          "¿Cuál es el margen por colección?",
+          "Sell-in de las últimas 12 semanas por cadena.",
         ],
       };
     }
@@ -189,7 +189,7 @@ export function contextoPantalla(ruta: string, d: Entrada): ContextoPantalla {
         saludo: `Pregúntame lo que necesites de la plataforma. Si hay una guía escrita te la doy, y si no, te contesto con las cifras del corte ${corteEtiqueta(vista)}.`,
         sugeridas: [
           "¿Cómo se calcula la cobertura?",
-          "¿Por qué no puedo mover una pieza de Liverpool a Sears?",
+          "¿Qué es el sell-in y el sell-out?",
           "¿Qué hace Argos exactamente?",
         ],
       };

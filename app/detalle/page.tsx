@@ -6,12 +6,14 @@ import { Descarga, useBase } from "@/components/descarga";
 import { libroDetalle } from "@/lib/libros";
 import { Tile, Chip, Mono, Tabla, type Col } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
-import { fmt, moneyCorto, type Combo, type ClaseEstado } from "@/lib/engine";
+import { enPeriodo, etiquetaPeriodo, fmt, fracciones, moneyCorto, type Combo, type ClaseEstado } from "@/lib/engine";
 
 type Orden = "impacto" | "inv" | "cob" | "so" | "edad";
 
 export default function Detalle() {
-  const { vista } = useBI();
+  const { vista, periodo } = useBI();
+  const fr = useMemo(() => fracciones(periodo), [periodo]);
+  const rotulo = etiquetaPeriodo(periodo);
   const base = useBase();
   const [busca, setBusca] = useState("");
   const [clase, setClase] = useState<ClaseEstado | "">("");
@@ -83,16 +85,31 @@ export default function Detalle() {
     },
     { t: "Precio", n: true, f: (c) => moneyCorto(c.precio) },
     { t: "12 semanas", f: (c) => <Sparkline valores={c.hist} /> },
-    { t: "Exist.", n: true, f: (c) => fmt(c.inv) },
-    { t: "Tránsito", n: true, f: (c) => fmt(c.tr) },
+    {
+      t: "Sell-out periodo (pzas)",
+      n: true,
+      f: (c) => (c.sucursal.reporta ? <strong>{fmt(enPeriodo(c, fr).out)}</strong> : "—"),
+    },
+    {
+      t: "Sell-out periodo ($)",
+      n: true,
+      f: (c) => (c.sucursal.reporta ? moneyCorto(enPeriodo(c, fr).out * c.precio) : "—"),
+    },
+    { t: "Sell-in periodo (pzas)", n: true, f: (c) => <strong>{fmt(enPeriodo(c, fr).in)}</strong> },
+    { t: "Sell-in periodo ($)", n: true, f: (c) => moneyCorto(enPeriodo(c, fr).in * c.costo) },
+    { t: "Exist. (pzas)", n: true, f: (c) => fmt(c.inv) },
+    { t: "Exist. ($)", n: true, f: (c) => moneyCorto(c.inv * c.costo) },
+    { t: "Tránsito (pzas)", n: true, f: (c) => fmt(c.tr) },
     { t: "Sell-out/sem", n: true, f: (c) => (c.sucursal.reporta ? fmt(c.so, 1) : "—") },
     {
       t: "Cobertura",
       n: true,
       f: (c) => (!c.sucursal.reporta ? "—" : c.cob > 50 ? "∞" : fmt(c.cob, 1)),
     },
+    { t: "Sobre umbral (pzas)", n: true, f: (c) => fmt(c.exc) },
+    { t: "Capital parado", n: true, f: (c) => moneyCorto(c.capital) },
     { t: "Días en canal", n: true, f: (c) => fmt(c.edad) },
-    { t: "Sugerido", n: true, f: (c) => fmt(c.sug) },
+    { t: "Sugerido (pzas)", n: true, f: (c) => fmt(c.sug) },
     { t: "Impacto", n: true, f: (c) => moneyCorto(c.impacto) },
     {
       t: "Estado",
@@ -102,23 +119,52 @@ export default function Detalle() {
   ];
 
   const inv = filas.reduce((a, c) => a + c.inv, 0);
+  const suma = useMemo(() => {
+    let out = 0,
+      outM = 0,
+      ent = 0,
+      entM = 0;
+    for (const c of filas) {
+      const v = enPeriodo(c, fr);
+      out += v.out;
+      outM += v.out * c.precio;
+      ent += v.in;
+      entM += v.in * c.costo;
+    }
+    return { out, outM, ent, entM };
+  }, [filas, fr]);
 
   return (
     <div className="view">
       <div className="tiles">
         <Tile k="Combinaciones" v={fmt(filas.length)} n={`de ${fmt(vista.length)} en el alcance`} />
-        <Tile k="Piezas en canal" v={fmt(inv)} n="En la semana de corte" />
         <Tile
-          k="Desplazamiento"
-          v={fmt(filas.reduce((a, c) => a + c.so, 0), 1)}
-          u="pzas/sem"
-          n="Promedio de ocho semanas"
+          k="Sell-out del periodo"
+          v={fmt(suma.out)}
+          u="pzas"
+          s={moneyCorto(suma.outM)}
+          n={`Vendido al consumidor · ${rotulo}`}
+        />
+        <Tile
+          k="Sell-in del periodo"
+          v={fmt(suma.ent)}
+          u="pzas"
+          s={moneyCorto(suma.entM)}
+          n={`Resurtido a las cadenas · ${rotulo}`}
+        />
+        <Tile
+          k="Piezas en canal"
+          v={fmt(inv)}
+          u="pzas"
+          s={moneyCorto(filas.reduce((a, c) => a + c.inv * c.costo, 0))}
+          n={`En el corte · desplazan ${fmt(filas.reduce((a, c) => a + c.so, 0), 1)} pzas por semana`}
         />
         <Tile
           k="Impacto acumulado"
           v={moneyCorto(filas.reduce((a, c) => a + c.impacto, 0))}
+          s={`${fmt(filas.reduce((a, c) => a + c.exc, 0))} pzas de más`}
           tono="flag"
-          n="Capital parado más venta perdida"
+          n="Capital parado más cuatro semanas de venta perdida"
         />
       </div>
 

@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useBI } from "@/lib/store";
 import { filtrosActivos } from "@/lib/engine";
+import { Periodo } from "./periodo";
 import {
   CIUDADES,
   MARCAS,
@@ -133,6 +134,8 @@ export function Filtros() {
         <b>Umbral</b>
         {filtro.umbral} semanas
       </span>
+
+      <Periodo />
 
       {puestos.map((p) => (
         <span className="puesto" key={p.et}>
@@ -284,7 +287,8 @@ export function Filtros() {
             </div>
             <p className="note" style={{ marginTop: 8 }}>
               El umbral no cambia los datos, cambia el criterio: a 8 semanas salen más
-              alertas, a 16 menos.
+              alertas, a 16 menos. El periodo de fechas se elige con el calendario de la
+              pastilla Periodo, junto al umbral.
             </p>
           </div>
 

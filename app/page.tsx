@@ -15,65 +15,45 @@ import {
   clasificar,
   SITUACIONES,
   PARAMS,
+  top,
+  serieDe,
+  etiquetaPeriodo,
+  esPeriodoCompleto,
   type Combo,
+  type Top,
 } from "@/lib/engine";
 import { proyectar, ESCENARIOS_BASE } from "@/lib/plan";
 import { Descarga, useBase } from "@/components/descarga";
 import { libroResumen } from "@/lib/libros";
 
 export default function Resumen() {
-  const { data, vista, ind, filtro, setEstado } = useBI();
+  const { data, vista, ind, filtro, periodo, setEstado } = useBI();
   const base = useBase();
 
   const indice = ind.sellIn > 0 ? (ind.sellOut / ind.sellIn) * 100 : 0;
   const brecha = ind.sellIn - ind.sellOut;
+  const rotulo = etiquetaPeriodo(periodo);
+  const completo = esPeriodoCompleto(periodo);
 
-  /* Los diez modelos que más venden en el alcance. Se agrupa por SKU porque
-     es el nivel al que se embarca: una colección puede verse bien mientras
-     una de sus referencias se cae sola. */
-  const top10 = useMemo(() => {
-    const m = new Map<
-      string,
-      { sku: string; nombre: string; coleccion: string; venta: number; ant: number }
-    >();
-    let total = 0;
-    for (const c of vista) {
-      const v = c.so * PARAMS.ventana * c.precio;
-      const a = c.soAnt * PARAMS.ventana * c.precio;
-      total += v;
-      const prev = m.get(c.modelo.sku);
-      if (prev) {
-        prev.venta += v;
-        prev.ant += a;
-      } else {
-        m.set(c.modelo.sku, {
-          sku: c.modelo.sku,
-          nombre: c.modelo.nombre,
-          coleccion: c.coleccion.nombre,
-          venta: v,
-          ant: a,
-        });
-      }
-    }
-    return [...m.values()]
-      .sort((a, b) => b.venta - a.venta)
-      .slice(0, 10)
-      .map((t) => ({
-        ...t,
-        part: total > 0 ? (t.venta / total) * 100 : 0,
-        varPct: t.ant > 0 ? ((t.venta - t.ant) / t.ant) * 100 : 0,
-      }));
-  }, [vista]);
+  /* Los diez modelos que más se venden y los diez que más se resurten, dentro
+     del periodo. Se agrupa por SKU porque es el nivel al que se resurte: una
+     colección puede verse bien mientras una de sus referencias se cae sola.
+     Las dos listas juntas enseñan lo que una sola esconde: el modelo que se
+     resurte mucho y se vende poco. */
+  const topOut = useMemo(() => top(vista, periodo, "out"), [vista, periodo]);
+  const topIn = useMemo(() => top(vista, periodo, "in"), [vista, periodo]);
 
-  const serie = useMemo(() => {
-    const prop = data.combos.length ? vista.length / data.combos.length : 1;
-    return data.serie.map((s) => ({
-      et: s.etiqueta,
-      pie: `Semana ${s.semana} de 2026`,
-      a: Math.round(s.sellIn * prop),
-      b: Math.round(s.sellOut * prop),
-    }));
-  }, [data, vista]);
+  const serie = useMemo(
+    () =>
+      serieDe(vista, periodo).map((s) => ({
+        et: s.etiqueta,
+        pie: s.etiqueta.startsWith("S") ? `Semana ${s.etiqueta.slice(1)} de ${CORTE.anio}` : s.etiqueta,
+        a: Math.round(s.sellIn),
+        b: Math.round(s.sellOut),
+      })),
+    [vista, periodo]
+  );
+  const porDia = serie.length > 0 && !serie[0].et.startsWith("S");
 
   const porCadena = useMemo(() => {
     return data.cadenas
@@ -95,7 +75,7 @@ export default function Resumen() {
                 : cl === "quiebre"
                   ? "var(--warn)"
                   : "var(--good)",
-          lbl: `${fmt(cob, 1)} sem`,
+          lbl: `${fmt(cob, 1)} sem · ${fmt(inv)} pzas`,
           tip: (
             <>
               <div className="r">
@@ -103,10 +83,18 @@ export default function Resumen() {
                 <b>{fmt(inv)} pzas</b>
               </div>
               <div className="r">
-                <span>Sobre umbral</span>
+                <span>Valor del inventario</span>
+                <b>{moneyCorto(f.reduce((a, c) => a + c.inv * c.costo, 0))}</b>
+              </div>
+              <div className="r">
+                <span>Combinaciones sobre umbral</span>
                 <b>
                   {sobre} de {f.length}
                 </b>
+              </div>
+              <div className="r">
+                <span>Piezas sobre umbral</span>
+                <b>{fmt(f.reduce((a, c) => a + c.exc, 0))} pzas</b>
               </div>
               <div className="r">
                 <span>Capital parado</span>
@@ -145,53 +133,68 @@ export default function Resumen() {
     <div className="view">
       <div className="tiles">
         <Tile
-          k="Sell-out 12 semanas"
+          k="Sell-out del periodo"
           v={fmt(ind.sellOut)}
           u="pzas"
-          n="Vendido al consumidor"
+          s={moneyCorto(ind.sellOutMonto)}
+          n={`Vendido al consumidor · ${rotulo}`}
         />
-        <Tile k="Sell-in 12 semanas" v={fmt(ind.sellIn)} u="pzas" n="Embarcado al canal" />
+        <Tile
+          k="Sell-in del periodo"
+          v={fmt(ind.sellIn)}
+          u="pzas"
+          s={moneyCorto(ind.sellInMonto)}
+          n={`Resurtido a las cadenas · ${rotulo}`}
+        />
         <Tile
           k="Índice de desplazamiento"
           v={fmt(indice, 1)}
           u="%"
+          s={`${brecha >= 0 ? "+" : "−"}${fmt(Math.abs(brecha))} pzas`}
           tono={indice < 90 ? "flag" : "ok"}
-          n={indice < 90 ? "Se embarca más de lo que se desplaza" : "Embarque y desplazamiento en línea"}
+          n={
+            brecha > 0
+              ? `Se resurtieron ${fmt(brecha)} piezas más de las que se vendieron`
+              : `Se vendieron ${fmt(-brecha)} piezas más de las que se resurtieron`
+          }
         />
         <Tile
           k="Cobertura promedio"
           v={fmt(ind.cobertura, 1)}
           u="sem"
+          s={`${fmt(ind.inventario)} pzas`}
           tono={ind.cobertura > filtro.umbral ? "flag" : undefined}
-          n={`Umbral configurado: ${filtro.umbral} semanas`}
+          n={`${moneyCorto(ind.inventarioMonto)} en canal · umbral de ${filtro.umbral} semanas`}
         />
         <Tile
           k="Capital inmovilizado"
           v={moneyCorto(ind.capital)}
+          s={`${fmt(ind.excedente)} pzas`}
           tono="flag"
-          n={`${fmt(ind.excedente)} piezas sobre el umbral`}
+          n={`Piezas sobre el umbral, en ${fmt(ind.saturadas)} combinaciones`}
         />
         <Tile
           k="Venta perdida semanal"
           v={moneyCorto(ind.perdida)}
+          s={`${fmt(ind.perdidaPzas)} pzas`}
           tono="flag"
-          n={`${fmt(ind.quiebres)} combinaciones en cero`}
+          n={`Por semana, en ${fmt(ind.quiebres)} combinaciones en quiebre`}
         />
       </div>
 
       <div className="cols-2">
         <div className="card">
-          <h3>Sell-in contra sell-out por semana</h3>
+          <h3>Sell-in contra sell-out por {porDia ? "día" : "semana"}</h3>
           <p className="sub">
             {brecha > 0
-              ? `En 12 semanas se embarcaron ${fmt(brecha)} piezas más de las que se desplazaron. Ese excedente es el que satura el anaquel.`
-              : "El desplazamiento va por delante del embarque en el periodo."}
+              ? `En el periodo se resurtieron ${fmt(ind.sellIn)} piezas y se vendieron ${fmt(ind.sellOut)}: ${fmt(brecha)} piezas de más, que son las que saturan el anaquel.`
+              : `En el periodo se vendieron ${fmt(ind.sellOut)} piezas y se resurtieron ${fmt(ind.sellIn)}: el desplazamiento va por delante del resurtido.`}
           </p>
           <Lineas datos={serie} etiquetaA="Sell-in" etiquetaB="Sell-out" alto={260} />
           <div className="legend">
             <span>
               <i style={{ background: "var(--s1)" }} />
-              Sell-in · embarcado al canal
+              Sell-in · resurtido a las cadenas
             </span>
             <span>
               <i style={{ background: "var(--s2)" }} />
@@ -199,8 +202,11 @@ export default function Resumen() {
             </span>
           </div>
           <p className="note">
-            Los cuatro picos de la línea azul son los embarques de cierre de mes. Ninguno
-            corresponde a un repunte de la demanda.
+            {porDia
+              ? "La carga es semanal. El detalle por día reparte cada semana con el peso que cada día tiene en una tienda departamental."
+              : completo
+                ? "Los picos de la línea azul son los resurtidos de cierre de mes. Ninguno corresponde a un repunte de la demanda."
+                : "Las semanas que el periodo corta a la mitad cuentan solo por sus días dentro del periodo."}
           </p>
         </div>
 
@@ -221,44 +227,22 @@ export default function Resumen() {
         </div>
       </div>
 
-      <div className="card">
-        <h3>Top 10 de modelos</h3>
-        <p className="sub">
-          Los diez que más venden en el alcance, con lo que pesan sobre el total y
-          cómo vienen contra el año pasado. El ancho de la barra es la participación.
-        </p>
-        <div className="top10">
-          {top10.map((t, i) => (
-            <div className="t10" key={t.sku}>
-              <span className="t10-pos">{i + 1}</span>
-              <span className="t10-nom">
-                <strong>{t.nombre}</strong>
-                <span>
-                  {t.sku} · {t.coleccion}
-                </span>
-              </span>
-              <span className="t10-barra">
-                <span style={{ width: `${(t.venta / top10[0].venta) * 100}%` }} />
-              </span>
-              <span className="t10-val num">{moneyCorto(t.venta)}</span>
-              <span className="t10-part num">{fmt(t.part, 1)}%</span>
-              <span
-                className="t10-var num"
-                style={{
-                  color: t.varPct >= 0 ? "var(--good-ink)" : "var(--crit-ink)",
-                }}
-              >
-                {t.varPct >= 0 ? "+" : "−"}
-                {fmt(Math.abs(t.varPct), 1)}%
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className="note">
-          La participación se calcula sobre la venta del alcance filtrado, no sobre el
-          total nacional. Con un estado o una cadena puesta, los diez cambian.
-        </p>
-      </div>
+      <Top10
+        titulo="Top 10 de sell-out"
+        sub={`Los diez modelos que más piezas vendieron al consumidor · ${rotulo}. El ancho de la barra son las piezas.`}
+        datos={topOut}
+        medida="out"
+        totalPzas={ind.sellOut}
+        totalMonto={ind.sellOutMonto}
+      />
+      <Top10
+        titulo="Top 10 de sell-in"
+        sub={`Los diez modelos que más piezas se resurtieron a las cadenas · ${rotulo}. Junto a cada uno, lo que de ese modelo sí se vendió.`}
+        datos={topIn}
+        medida="in"
+        totalPzas={ind.sellIn}
+        totalMonto={ind.sellInMonto}
+      />
 
       <div className="cols-2">
         <div className="card">
@@ -287,15 +271,22 @@ export default function Resumen() {
                     color={c.clase === "quiebre" ? "var(--warn)" : "var(--s1)"}
                   />
                   <Chip clase={c.clase} />
-                  <div className="val num">{moneyCorto(c.impacto)}</div>
+                  <div className="val num">
+                    {moneyCorto(c.impacto)}
+                    <small>
+                      {c.clase === "quiebre"
+                        ? `faltan ${fmt(c.sug)} pzas`
+                        : `sobran ${fmt(c.exc)} pzas`}
+                    </small>
+                  </div>
                 </div>
               ))
             )}
           </div>
           <div className="tfoot">
-            <span>Ordenado por impacto en pesos</span>
+            <span>Ordenado por impacto en pesos, con sus piezas</span>
             <Link className="btn ghost sm" href="/ejecucion">
-              Ver todo y actuar
+              Ver todo
             </Link>
           </div>
         </div>
@@ -317,11 +308,16 @@ export default function Resumen() {
                 <div className="who">
                   <strong>{e.estado.nombre}</strong>
                   <span>
-                    {fmt(e.sucursales)} sucursales · {fmt(e.combos)} combinaciones
+                    {fmt(e.sucursales)} sucursales · {fmt(e.inv)} pzas en canal
                   </span>
                 </div>
                 <Chip clase={e.clase} />
-                <div className="val num">{moneyCorto(e.impacto)}</div>
+                <div className="val num">
+                  {moneyCorto(e.impacto)}
+                  <small>
+                    {fmt(e.exc)} pzas de más · {fmt(e.quiebres)} quiebres
+                  </small>
+                </div>
               </div>
             ))}
           </div>
@@ -340,36 +336,40 @@ export default function Resumen() {
         <h3>Lo que vale corregir el canal</h3>
         <p className="sub">
           Comparación entre dejar la operación como está y el escenario que ataca la saturación.
-          Ambos proyectan doce meses sobre las mismas cifras de hoy.
+          Los dos proyectan doce meses de sell-in, que es lo que la marca le vende a las cadenas.
         </p>
         <div className="tiles" style={{ marginTop: 12 }}>
           <Tile
-            k="EBITDA sin cambiar nada"
-            v={moneyCorto(corregido.base.ebitda)}
-            n={`${pct(corregido.base.ebitdaPct)} sobre ingreso`}
+            k="Sell-in sin cambiar nada"
+            v={moneyCorto(corregido.base.ingreso)}
+            s={`${fmt(corregido.base.unidades)} pzas`}
+            n={`EBITDA de ${moneyCorto(corregido.base.ebitda)}, ${pct(corregido.base.ebitdaPct)} del ingreso`}
           />
           <Tile
-            k="EBITDA con el canal corregido"
-            v={moneyCorto(corregido.corr.ebitda)}
+            k="Sell-in con el canal corregido"
+            v={moneyCorto(corregido.corr.ingreso)}
+            s={`${fmt(corregido.corr.unidades)} pzas`}
             tono="ok"
-            n={`${pct(corregido.corr.ebitdaPct)} sobre ingreso`}
+            n={`EBITDA de ${moneyCorto(corregido.corr.ebitda)}, ${pct(corregido.corr.ebitdaPct)} del ingreso`}
           />
           <Tile
             k="Diferencia"
-            v={moneyCorto(corregido.delta)}
+            v={moneyCorto(corregido.corr.ingreso - corregido.base.ingreso)}
+            s={`${fmt(corregido.corr.unidades - corregido.base.unidades)} pzas`}
             tono="accent"
-            n="Asumiendo cinco puntos de crecimiento, no ocho"
+            n={`${moneyCorto(corregido.delta)} más de EBITDA en doce meses`}
           />
           <Tile
-            k="Caja liberada"
-            v={moneyCorto(corregido.corr.cajaLiberada)}
+            k="Quiebres que se cierran"
+            v={moneyCorto(corregido.corr.recuperado)}
+            s={`${fmt(corregido.corr.recuperadoPzas)} pzas`}
             tono="accent"
-            n="Menos días de inventario y liquidación del envejecido"
+            n="Sell-in que hoy no ocurre porque la tienda está en cero"
           />
         </div>
         <p className="note">
-          El argumento no es vender más. Es dejar de embarcar a plazas que ya no pueden desplazar,
-          mover lo que ya está pagado y recuperar la venta que hoy se pierde por quiebre.{" "}
+          El argumento no es empujar más producto. Es dejar de resurtir a las plazas que ya no
+          pueden desplazar y resurtir donde hoy se pierde venta por quiebre.{" "}
           <Link href="/planeacion" style={{ color: "var(--accent-ink)" }}>
             Ver el modelo completo
           </Link>
@@ -399,9 +399,118 @@ export default function Resumen() {
       </div>
       <Descarga
         titulo="El resumen en Excel"
-        contenido="Tablero con 12 indicadores y 4 gráficas, tablas por cadena, modelo y estado, y el corte completo. El umbral es una celda viva."
+        contenido="Tablero con indicadores en piezas y en monto, gráficas, sell-out y sell-in por cadena, modelo y estado, y el corte completo. El umbral es una celda viva."
         armar={() => libroResumen(base)}
       />
+    </div>
+  );
+}
+
+/** Una de las dos listas: la de lo más vendido o la de lo más resurtido. */
+function Top10({
+  titulo,
+  sub,
+  datos,
+  medida,
+  totalPzas,
+  totalMonto,
+}: {
+  titulo: string;
+  sub: string;
+  datos: Top;
+  medida: "out" | "in";
+  totalPzas: number;
+  totalMonto: number;
+}) {
+  const mayor = datos.filas[0]?.piezas ?? 1;
+  const pzas10 = datos.filas.reduce((a, f) => a + f.piezas, 0);
+  const monto10 = datos.filas.reduce((a, f) => a + f.monto, 0);
+  return (
+    <div className="card">
+      <h3>{titulo}</h3>
+      <p className="sub">{sub}</p>
+      {datos.filas.length === 0 ? (
+        <div className="empty">Sin movimiento en el periodo con los filtros actuales.</div>
+      ) : (
+        <>
+          <div className="top10">
+            <div className="t10 cab">
+              <span />
+              <span>Modelo</span>
+              <span>{medida === "out" ? "Piezas vendidas" : "Piezas resurtidas"}</span>
+              <span>Piezas</span>
+              <span>Monto</span>
+              <span>% pzas</span>
+              <span>{medida === "out" ? "Resurtido" : "Vendido"}</span>
+              <span>{medida === "out" ? "Vs año ant." : "Desplazó"}</span>
+            </div>
+            {datos.filas.map((t, i) => {
+              const despl = t.piezas > 0 ? (t.otras / t.piezas) * 100 : 0;
+              return (
+                <div className="t10" key={t.sku}>
+                  <span className="t10-pos">{i + 1}</span>
+                  <span className="t10-nom">
+                    <strong>{t.nombre}</strong>
+                    <span>
+                      {t.sku} · {t.coleccion} · {fmt(t.tiendas)} tiendas
+                    </span>
+                  </span>
+                  <span className={`t10-barra ${medida}`}>
+                    <span style={{ width: `${(t.piezas / mayor) * 100}%` }} />
+                  </span>
+                  <span className="t10-pzas num">{fmt(t.piezas)} pzas</span>
+                  <span className="t10-val num">{moneyCorto(t.monto)}</span>
+                  <span className="t10-part num">{fmt(t.parte, 1)}%</span>
+                  <span className="t10-otra num">{fmt(t.otras)} pzas</span>
+                  {medida === "out" ? (
+                    <span
+                      className="t10-var num"
+                      style={{
+                        color:
+                          t.variacion === null
+                            ? "var(--ink-3)"
+                            : t.variacion >= 0
+                              ? "var(--good-ink)"
+                              : "var(--crit-ink)",
+                      }}
+                    >
+                      {t.variacion === null
+                        ? "s/d"
+                        : `${t.variacion >= 0 ? "+" : "−"}${fmt(Math.abs(t.variacion), 1)}%`}
+                    </span>
+                  ) : (
+                    <span
+                      className="t10-var num"
+                      style={{ color: despl < 80 ? "var(--crit-ink)" : "var(--good-ink)" }}
+                    >
+                      {fmt(despl, 0)}%
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="t10-tot">
+            <span>
+              Ítems: <b>{datos.filas.length}</b> de <b>{fmt(datos.modelos)}</b> modelos con movimiento
+            </span>
+            <span>
+              Piezas de los diez: <b>{fmt(pzas10)}</b> de <b>{fmt(totalPzas)}</b>
+            </span>
+            <span>
+              Monto de los diez: <b>{moneyCorto(monto10)}</b> de <b>{moneyCorto(totalMonto)}</b>
+            </span>
+            <span>
+              Concentran el <b>{fmt(totalPzas > 0 ? (pzas10 / totalPzas) * 100 : 0, 1)}%</b> de las piezas
+            </span>
+          </div>
+        </>
+      )}
+      <p className="note">
+        {medida === "out"
+          ? "Monto a precio de lista. La columna Resurtido son las piezas de ese modelo que entraron a las cadenas en el mismo periodo."
+          : "Monto a precio de venta a la cadena. Desplazó es lo vendido entre lo resurtido: debajo de 80% el modelo se está acumulando en el anaquel."}
+      </p>
     </div>
   );
 }

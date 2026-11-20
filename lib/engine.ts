@@ -60,8 +60,6 @@ export const PARAMS = {
   historia: 12,
   /** Costo financiero anual del inventario parado. */
   costoCapitalAnual: 0.18,
-  /** Costo logístico de un traslado entre tiendas, por pieza. */
-  costoTraslado: 38,
 };
 
 /** Semana de corte del reporte. */
@@ -102,11 +100,11 @@ export const SITUACIONES: Situacion[] = [
     evidencia: "Oaxaca, Chiapas y Tabasco con inventario premium que no registra desplazamiento.",
   },
   {
-    id: "traslado-jalisco",
+    id: "desbalance-jalisco",
     titulo: "Sobra en Jalisco, falta en Querétaro",
     resumen:
-      "La misma colección, la misma cadena, 400 kilómetros de distancia y ningún mecanismo que lo detecte.",
-    evidencia: "El panel de acción propone el traslado antes que un embarque nuevo.",
+      "La misma colección y la misma cadena: una plaza recibió de más y la otra se quedó en cero.",
+    evidencia: "Liverpool Jalisco pasa del umbral en las mismas colecciones que Liverpool Querétaro tiene en cero.",
   },
   {
     id: "sin-reporte",
@@ -119,7 +117,7 @@ export const SITUACIONES: Situacion[] = [
     id: "estacional",
     titulo: "El pico de diciembre llegó sin inventario",
     resumen:
-      "Citizen L multiplica su desplazamiento en la última semana de noviembre y el embarque no lo anticipó.",
+      "Citizen L multiplica su desplazamiento en la última semana de noviembre y el resurtido no lo anticipó.",
     evidencia: "La curva de sell-out se despega del sell-in justo antes del cierre del año.",
   },
   {
@@ -145,10 +143,10 @@ export const SITUACIONES: Situacion[] = [
   },
   {
     id: "empuje-cierre",
-    titulo: "Embarque de cierre de mes",
+    titulo: "Resurtido de cierre de mes",
     resumen:
       "El sell-in se dispara la última semana de cada mes, muy por encima de lo que el canal desplaza.",
-    evidencia: "Los picos de la línea azul contra la línea naranja, cuatro veces en el periodo.",
+    evidencia: "Los picos de la línea azul contra la línea naranja, tres veces en doce semanas.",
   },
 ];
 
@@ -182,6 +180,18 @@ export type Combo = {
   soAnt: number;
   /** Sell-out semana a semana, el más reciente al final. */
   hist: number[];
+  /** Sell-in semana a semana: lo que la marca le resurtió a esa tienda. */
+  hin: number[];
+  /** Existencia en el corte anterior: la de hoy, menos lo que entró, más lo que salió. */
+  invAnt: number;
+  /** Desplazamiento promedio de la ventana que cerraba en el corte anterior. */
+  soPrev: number;
+  /** Cobertura, excedente, capital, venta perdida y semáforo del corte anterior. */
+  cobAnt: number;
+  excAnt: number;
+  capitalAnt: number;
+  perdidaAnt: number;
+  claseAnt: ClaseEstado;
   /** Días que el inventario lleva en el canal. */
   edad: number;
   /** Semanas de cobertura. 99 significa inventario sin desplazamiento. */
@@ -371,6 +381,14 @@ export function generar(): Dataset {
         so,
         soAnt,
         hist,
+        hin: [],
+        invAnt: 0,
+        soPrev: 0,
+        cobAnt: 0,
+        excAnt: 0,
+        capitalAnt: 0,
+        perdidaAnt: 0,
+        claseAnt: "sano",
         edad,
         cob: 0,
         objetivo: 0,
@@ -395,11 +413,14 @@ export function generar(): Dataset {
     c.soAnt = f > 0 ? c.so / f : 0;
   }
 
+  const serie = construirSerie(combos);
+  repartirSellIn(combos, serie);
+
   for (const c of combos) derivar(c);
 
   return {
     combos,
-    serie: construirSerie(combos),
+    serie,
     cadenas: CADENAS,
     colecciones: COLECCIONES,
     estados: ESTADOS,
@@ -552,6 +573,11 @@ export function derivar(c: Combo, umbral = PARAMS.umbral) {
     c.sug = 0;
     c.clase = "sano";
     c.impacto = 0;
+    c.cobAnt = 0;
+    c.excAnt = 0;
+    c.capitalAnt = 0;
+    c.perdidaAnt = 0;
+    c.claseAnt = "sano";
     return c;
   }
 
@@ -560,6 +586,20 @@ export function derivar(c: Combo, umbral = PARAMS.umbral) {
   c.perdida = c.inv === 0 && c.so > 0.15 ? c.so * c.precio : 0;
   c.clase = clasificar(c, umbral);
   c.impacto = Math.round(c.capital + c.perdida * 4);
+
+  // El corte anterior, con las mismas reglas y el mismo umbral que el actual.
+  c.cobAnt = c.soPrev > 0.05 ? c.invAnt / c.soPrev : c.invAnt > 0 ? 99 : 0;
+  c.excAnt = Math.max(0, Math.round(c.invAnt - c.soPrev * umbral));
+  c.capitalAnt = Math.round(c.excAnt * c.costo);
+  c.perdidaAnt = c.invAnt === 0 && c.soPrev > 0.15 ? c.soPrev * c.precio : 0;
+  c.claseAnt =
+    c.cobAnt < PARAMS.coberturaMinima && c.soPrev > 0.15
+      ? "quiebre"
+      : c.cobAnt <= umbral
+        ? "sano"
+        : c.cobAnt <= umbral * PARAMS.factorCritico
+          ? "alto"
+          : "saturado";
   return c;
 }
 
@@ -592,7 +632,7 @@ function construirSerie(combos: Combo[]): SemanaSerie[] {
     const sellOut = Math.round(
       combos.reduce((a, c) => a + (c.hist[i] ?? 0), 0)
     );
-    // Embarque de cierre de mes: cada cuarta semana el sell-in se dispara
+    // Resurtido de cierre de mes: cada cuarta semana el sell-in se dispara
     const cierre = (semana + 1) % 4 === 0;
     const factor = cierre ? 2.55 + rnd() * 0.5 : 0.66 + rnd() * 0.22;
     serie.push({
@@ -604,6 +644,174 @@ function construirSerie(combos: Combo[]): SemanaSerie[] {
     });
   }
   return serie;
+}
+
+/**
+ * El sell-in de cada tienda y modelo.
+ *
+ * La serie nacional ya dice cuánto se resurtió cada semana. Aquí se reparte
+ * entre las combinaciones con una regla que cierra con el inventario: lo que
+ * entró a una tienda en doce semanas es lo que vendió más lo que le creció la
+ * existencia. La existencia de hoy creció la misma proporción en todas, la
+ * que hace que el total nacional cuadre al centavo con la serie.
+ *
+ *   sell-in de la combinación = su sell-out de 12 semanas + beta × su existencia
+ *   beta = (sell-in nacional − sell-out nacional) ÷ existencia nacional
+ *
+ * De ahí sale también el corte anterior: la existencia de hace una semana es
+ * la de hoy, menos lo que entró esta semana, más lo que se vendió.
+ */
+function repartirSellIn(combos: Combo[], serie: SemanaSerie[]) {
+  const n = PARAMS.historia;
+  const totalIn = serie.reduce((a, s) => a + s.sellIn, 0);
+  const totalOut = combos.reduce((a, c) => a + c.hist.reduce((x, y) => x + y, 0), 0);
+  const totalInv = combos.reduce((a, c) => a + c.inv, 0);
+  const beta = totalInv > 0 ? Math.max(0, (totalIn - totalOut) / totalInv) : 0;
+  const forma = serie.map((s) => (totalIn > 0 ? s.sellIn / totalIn : 1 / n));
+
+  for (const c of combos) {
+    const out12 = c.hist.reduce((x, y) => x + y, 0);
+    const in12 = out12 + beta * c.inv;
+    c.hin = forma.map((f) => in12 * f);
+    c.invAnt = Math.max(0, Math.round(c.inv - c.hin[n - 1] + c.hist[n - 1]));
+    // Un quiebre rara vez nace el mismo lunes: la mayoría de las combinaciones
+    // que hoy están en cero ya lo estaban la semana pasada, vendiendo lo poco
+    // que les llegaba. Se decide por combinación, siempre igual.
+    if (c.inv === 0 && c.invAnt > 0 && c.invAnt <= 3) {
+      let h = 0;
+      for (let i = 0; i < c.id.length; i++) h = (h * 31 + c.id.charCodeAt(i)) >>> 0;
+      if (mulberry32(SEMILLA + h)() < 0.85) c.invAnt = 0;
+    }
+    const v = PARAMS.ventana;
+    const hoy = c.hist.slice(n - v).reduce((x, y) => x + y, 0);
+    const antes = c.hist.slice(n - v - 1, n - 1).reduce((x, y) => x + y, 0);
+    c.soPrev = hoy > 0.01 ? c.so * (antes / hoy) : c.so;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * El calendario del corte
+ * ------------------------------------------------------------------ */
+
+const MS_DIA = 86400000;
+/** Días de historia cargada: doce semanas completas, de lunes a domingo. */
+export const DIAS_HISTORIA = PARAMS.historia * 7;
+const FIN_HISTORIA = Date.parse(CORTE.fecha + "T00:00:00Z");
+const INICIO_HISTORIA = FIN_HISTORIA - (DIAS_HISTORIA - 1) * MS_DIA;
+
+export const fechaDeDia = (d: number) =>
+  new Date(INICIO_HISTORIA + d * MS_DIA).toISOString().slice(0, 10);
+export const diaDeFecha = (iso: string) =>
+  Math.round((Date.parse(iso + "T00:00:00Z") - INICIO_HISTORIA) / MS_DIA);
+export const PRIMER_DIA = fechaDeDia(0);
+export const ULTIMO_DIA = CORTE.fecha;
+
+/** Un periodo en días de la historia, los dos extremos incluidos. */
+export type Periodo = { desde: number; hasta: number };
+export const PERIODO_TODO: Periodo = { desde: 0, hasta: DIAS_HISTORIA - 1 };
+
+export function periodoDe(f: { desde?: string; hasta?: string }): Periodo {
+  const lim = (v: number) => Math.max(0, Math.min(DIAS_HISTORIA - 1, v));
+  let a = f.desde ? lim(diaDeFecha(f.desde)) : 0;
+  let b = f.hasta ? lim(diaDeFecha(f.hasta)) : DIAS_HISTORIA - 1;
+  if (!isFinite(a)) a = 0;
+  if (!isFinite(b)) b = DIAS_HISTORIA - 1;
+  return a <= b ? { desde: a, hasta: b } : { desde: b, hasta: a };
+}
+
+export const esPeriodoCompleto = (p: Periodo) => p.desde === 0 && p.hasta === DIAS_HISTORIA - 1;
+export const diasDe = (p: Periodo) => p.hasta - p.desde + 1;
+
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+export const fechaCorta = (iso: string) => {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${d} ${MESES_CORTOS[m - 1]}`;
+};
+/** "24 ago – 15 nov · 12 semanas" o "9 – 15 nov · 7 días". */
+export function etiquetaPeriodo(p: Periodo): string {
+  const a = fechaDeDia(p.desde);
+  const b = fechaDeDia(p.hasta);
+  const dias = diasDe(p);
+  const largo = dias % 7 === 0 ? `${dias / 7} ${dias === 7 ? "semana" : "semanas"}` : `${dias} ${dias === 1 ? "día" : "días"}`;
+  return (a === b ? fechaCorta(a) : `${fechaCorta(a)} – ${fechaCorta(b)}`) + ` · ${largo}`;
+}
+
+/* La carga es semanal. Para contestar por día, cada semana se reparte con el
+   peso que cada día tiene en una tienda departamental: el fin de semana vende
+   más y el resurtido llega entre semana. Los siete pesos suman uno, así que
+   una semana completa vale exactamente lo que vale en la carga. */
+const PESO_OUT = [0.1, 0.1, 0.11, 0.12, 0.17, 0.22, 0.18];
+const PESO_IN = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0];
+
+/** Qué parte de cada semana cae dentro del periodo, para sell-out y para sell-in. */
+export type Fracciones = { out: number[]; in: number[] };
+export function fracciones(p: Periodo): Fracciones {
+  const out = Array(PARAMS.historia).fill(0);
+  const ent = Array(PARAMS.historia).fill(0);
+  for (let d = p.desde; d <= p.hasta; d++) {
+    const s = Math.floor(d / 7);
+    out[s] += PESO_OUT[d % 7];
+    ent[s] += PESO_IN[d % 7];
+  }
+  // Las semanas completas valen uno exacto, sin el polvo de sumar decimales.
+  for (let s = 0; s < PARAMS.historia; s++) {
+    if (p.desde <= s * 7 && p.hasta >= s * 7 + 6) {
+      out[s] = 1;
+      ent[s] = 1;
+    }
+  }
+  return { out, in: ent };
+}
+
+/** Piezas vendidas y piezas resurtidas de una combinación dentro del periodo. */
+export function enPeriodo(c: Combo, f: Fracciones) {
+  let out = 0;
+  let ent = 0;
+  for (let i = 0; i < c.hist.length; i++) {
+    if (f.out[i]) out += c.hist[i] * f.out[i];
+    if (f.in[i]) ent += (c.hin[i] ?? 0) * f.in[i];
+  }
+  return { out, in: ent };
+}
+
+export type PuntoSerie = { etiqueta: string; sellIn: number; sellOut: number };
+
+/**
+ * La serie de sell-in contra sell-out del alcance filtrado y del periodo.
+ * Por semana cuando el periodo es largo, por día cuando cabe en tres semanas.
+ */
+export function serieDe(combos: Combo[], p: Periodo): PuntoSerie[] {
+  const n = PARAMS.historia;
+  const porSemanaOut = Array(n).fill(0);
+  const porSemanaIn = Array(n).fill(0);
+  for (const c of combos) {
+    for (let i = 0; i < n; i++) {
+      porSemanaOut[i] += c.hist[i] ?? 0;
+      porSemanaIn[i] += c.hin[i] ?? 0;
+    }
+  }
+  const salida: PuntoSerie[] = [];
+  if (diasDe(p) <= 21) {
+    for (let d = p.desde; d <= p.hasta; d++) {
+      const s = Math.floor(d / 7);
+      salida.push({
+        etiqueta: fechaCorta(fechaDeDia(d)),
+        sellOut: porSemanaOut[s] * PESO_OUT[d % 7],
+        sellIn: porSemanaIn[s] * PESO_IN[d % 7],
+      });
+    }
+    return salida;
+  }
+  const f = fracciones(p);
+  for (let s = 0; s < n; s++) {
+    if (!f.out[s] && !f.in[s]) continue;
+    salida.push({
+      etiqueta: `S${CORTE.semana - (n - 1 - s)}`,
+      sellOut: porSemanaOut[s] * f.out[s],
+      sellIn: porSemanaIn[s] * f.in[s],
+    });
+  }
+  return salida;
 }
 
 /* ------------------------------------------------------------------ *
@@ -622,6 +830,9 @@ export type Filtro = {
   genero?: string;
   material?: string;
   umbral: number;
+  /** Periodo de análisis, en fechas ISO. Vacío significa toda la historia cargada. */
+  desde?: string;
+  hasta?: string;
 };
 
 export function filtrar(combos: Combo[], f: Filtro): Combo[] {
@@ -789,139 +1000,271 @@ export function porSucursal(combos: Combo[], umbral: number): ResumenSucursal[] 
 }
 
 export type Indicadores = {
+  /** Piezas vendidas al consumidor en el periodo, y su monto a precio de lista. */
   sellOut: number;
+  sellOutMonto: number;
+  /** Piezas resurtidas por la marca en el periodo, y su monto a precio de venta a la cadena. */
   sellIn: number;
+  sellInMonto: number;
+  /** Días que abarca el periodo. */
+  dias: number;
   desplazamiento: number;
   inventario: number;
+  /** Valor del inventario en canal, a precio de venta a la cadena. */
+  inventarioMonto: number;
   cobertura: number;
   saturadas: number;
   quiebres: number;
+  /** Venta perdida semanal: en pesos y en piezas. */
   perdida: number;
+  perdidaPzas: number;
   capital: number;
   excedente: number;
   coberturaReporte: number;
   sucursales: number;
   reportan: number;
-  ingreso: number;
-  margen: number;
 };
 
-export function indicadores(
-  combos: Combo[],
-  serie: SemanaSerie[],
-  todos: Combo[]
-): Indicadores {
-  const proporcion = todos.length ? combos.length / todos.length : 1;
-  const sellOut = serie.reduce((a, s) => a + s.sellOut, 0) * proporcion;
-  const sellIn = serie.reduce((a, s) => a + s.sellIn, 0) * proporcion;
-  const inv = combos.reduce((a, c) => a + c.inv, 0);
-  const so = combos.reduce((a, c) => a + c.so, 0);
+export function indicadores(combos: Combo[], periodo: Periodo = PERIODO_TODO): Indicadores {
+  const f = fracciones(periodo);
+  let sellOut = 0;
+  let sellOutMonto = 0;
+  let sellIn = 0;
+  let sellInMonto = 0;
+  let inv = 0;
+  let invMonto = 0;
+  let so = 0;
+  for (const c of combos) {
+    const v = enPeriodo(c, f);
+    sellOut += v.out;
+    sellOutMonto += v.out * c.precio;
+    sellIn += v.in;
+    sellInMonto += v.in * c.costo;
+    inv += c.inv;
+    invMonto += c.inv * c.costo;
+    so += c.so;
+  }
   const sucs = new Set(combos.map((c) => c.sucursal.clave));
   const reportan = new Set(
     combos.filter((c) => c.sucursal.reporta).map((c) => c.sucursal.clave)
   );
   const quiebres = combos.filter((c) => c.clase === "quiebre");
-  const ingreso = combos.reduce((a, c) => a + c.so * 52 * c.precio, 0);
-  const margen = combos.reduce((a, c) => a + c.so * 52 * (c.precio - c.costo), 0);
 
   return {
     sellOut: Math.round(sellOut),
+    sellOutMonto,
     sellIn: Math.round(sellIn),
+    sellInMonto,
+    dias: diasDe(periodo),
     desplazamiento: so,
     inventario: inv,
+    inventarioMonto: invMonto,
     cobertura: so > 0.05 ? inv / so : 0,
     saturadas: combos.filter((c) => c.clase === "alto" || c.clase === "saturado").length,
     quiebres: quiebres.length,
     perdida: quiebres.reduce((a, c) => a + c.perdida, 0),
+    perdidaPzas: quiebres.reduce((a, c) => a + (c.perdida > 0 ? c.so : 0), 0),
     capital: combos.reduce((a, c) => a + c.capital, 0),
     excedente: combos.reduce((a, c) => a + c.exc, 0),
     coberturaReporte: sucs.size ? (reportan.size / sucs.size) * 100 : 0,
     sucursales: sucs.size,
     reportan: reportan.size,
-    ingreso,
-    margen,
   };
 }
 
 /* ------------------------------------------------------------------ *
- * Traslados: mover lo que ya está pagado antes de embarcar
+ * Los más vendidos y los más resurtidos
  * ------------------------------------------------------------------ */
 
-export type Traslado = {
-  origen: Combo;
-  destino: Combo;
+export type FilaTop = {
+  sku: string;
+  nombre: string;
+  coleccion: string;
+  /** Piezas y monto del periodo, en la medida que ordena la lista. */
   piezas: number;
-  /** Semanas de desplazamiento que el traslado cubre en destino. */
-  semanas: number;
-  /** Venta perdida semanal que deja de correr. */
-  recupera: number;
-  /** Costo logístico estimado. */
-  costo: number;
-  /** 0 = misma plaza, 1 = entre estados de la misma cadena. */
-  salto: number;
+  monto: number;
+  /** Parte del total de piezas del alcance. */
+  parte: number;
+  /** Las piezas de la otra medida, para leer las dos juntas. */
+  otras: number;
+  /** Variación contra el mismo periodo del año anterior. Solo existe para sell-out. */
+  variacion: number | null;
+  tiendas: number;
 };
 
-export function traslados(
-  candidatos: Combo[],
-  universo: Combo[],
-  limite = 8
-): Traslado[] {
-  // Se agrupa por MODELO, no por colección: un quiebre de CTZ-TS1525 no se
-  // cubre con un CTZ-TS1402. Es la misma colección pero no la misma pieza.
-  const porModelo = new Map<string, Combo[]>();
-  for (const c of universo) {
+export type Top = {
+  filas: FilaTop[];
+  /** Cuántos modelos tienen movimiento en el alcance, y sus totales. */
+  modelos: number;
+  piezas: number;
+  monto: number;
+};
+
+export function top(combos: Combo[], periodo: Periodo, medida: "out" | "in", cuantos = 10): Top {
+  const f = fracciones(periodo);
+  const m = new Map<string, FilaTop & { ant: number; base: number }>();
+  for (const c of combos) {
+    const v = enPeriodo(c, f);
     const k = c.modelo.sku;
-    if (!porModelo.has(k)) porModelo.set(k, []);
-    porModelo.get(k)!.push(c);
+    if (!m.has(k)) {
+      m.set(k, {
+        sku: k,
+        nombre: c.modelo.nombre,
+        coleccion: c.coleccion.nombre,
+        piezas: 0,
+        monto: 0,
+        parte: 0,
+        otras: 0,
+        variacion: null,
+        tiendas: 0,
+        ant: 0,
+        base: 0,
+      });
+    }
+    const r = m.get(k)!;
+    const pz = medida === "out" ? v.out : v.in;
+    r.piezas += pz;
+    r.monto += pz * (medida === "out" ? c.precio : c.costo);
+    r.otras += medida === "out" ? v.in : v.out;
+    if (pz > 0.01) r.tiendas++;
+    // El año anterior solo se conoce para el sell-out, y solo donde había tienda.
+    if (c.soAnt > 0 && c.so > 0) {
+      r.base += v.out;
+      r.ant += v.out * (c.soAnt / c.so);
+    }
   }
-
-  const usados = new Set<string>();
-  const salida: Traslado[] = [];
-
-  for (const o of [...candidatos].sort((a, b) => b.exc - a.exc)) {
-    if (o.exc < 3 || !o.sucursal.reporta) continue;
-    // Mismo estado primero; el traslado entre plazas lejanas rara vez paga el flete.
-    const cerca = (d: Combo) => (d.sucursal.estadoId === o.sucursal.estadoId ? 0 : 1);
-
-    const destinos = (porModelo.get(o.modelo.sku) ?? [])
-      .filter(
-        (d) =>
-          // Una pieza ya embarcada pertenece a la cadena que la compró: el
-          // traslado solo existe dentro de la misma cadena. Entre cadenas
-          // distintas no hay traslado, hay renegociación de embarque.
-          d.sucursal.cadenaId === o.sucursal.cadenaId &&
-          d.sucursal.clave !== o.sucursal.clave &&
-          d.so > 0.2 &&
-          d.clase === "quiebre" &&
-          !usados.has(d.id)
-      )
-      .sort((a, b) => cerca(a) - cerca(b) || b.perdida - a.perdida);
-
-    const d = destinos[0];
-    if (!d) continue;
-
-    const falta = Math.max(1, d.objetivo - d.inv - d.tr);
-    const piezas = Math.min(o.exc, falta);
-    if (piezas < 3) continue;
-    const semanas = d.so > 0.05 ? piezas / d.so : 0;
-    if (semanas < 1.5) continue;
-
-    usados.add(d.id);
-    salida.push({
-      origen: o,
-      destino: d,
-      piezas,
-      semanas,
-      recupera: d.perdida,
-      costo: Math.round(piezas * PARAMS.costoTraslado),
-      salto: cerca(d),
-    });
+  const todas = [...m.values()].filter((r) => r.piezas > 0.5);
+  const piezas = todas.reduce((a, r) => a + r.piezas, 0);
+  const monto = todas.reduce((a, r) => a + r.monto, 0);
+  for (const r of todas) {
+    r.parte = piezas > 0 ? (r.piezas / piezas) * 100 : 0;
+    r.variacion = medida === "out" && r.ant > 0 ? (r.base / r.ant - 1) * 100 : null;
   }
-
-  return salida
-    .sort((a, b) => a.salto - b.salto || b.recupera - a.recupera)
-    .slice(0, limite);
+  return {
+    filas: todas.sort((a, b) => b.piezas - a.piezas).slice(0, cuantos),
+    modelos: todas.length,
+    piezas,
+    monto,
+  };
 }
+
+/* ------------------------------------------------------------------ *
+ * Lo que cada cadena ya vendió y lo que se le resurtió
+ * ------------------------------------------------------------------ */
+
+export type FilaCadena = {
+  id: string;
+  nombre: string;
+  outPzas: number;
+  outMonto: number;
+  inPzas: number;
+  inMonto: number;
+  inv: number;
+  invMonto: number;
+};
+
+export function porCadena(combos: Combo[], periodo: Periodo = PERIODO_TODO): FilaCadena[] {
+  const f = fracciones(periodo);
+  const m = new Map<string, FilaCadena>();
+  for (const c of combos) {
+    const id = c.sucursal.cadenaId;
+    if (!m.has(id)) {
+      m.set(id, { id, nombre: cadenaPorId(id).nombre, outPzas: 0, outMonto: 0, inPzas: 0, inMonto: 0, inv: 0, invMonto: 0 });
+    }
+    const r = m.get(id)!;
+    const v = enPeriodo(c, f);
+    r.outPzas += v.out;
+    r.outMonto += v.out * c.precio;
+    r.inPzas += v.in;
+    r.inMonto += v.in * c.costo;
+    r.inv += c.inv;
+    r.invMonto += c.inv * c.costo;
+  }
+  return [...m.values()].sort((a, b) => b.inMonto - a.inMonto);
+}
+
+/* ------------------------------------------------------------------ *
+ * El corte anterior contra el actual
+ * ------------------------------------------------------------------ */
+
+const enAlerta = (k: ClaseEstado) => k !== "sano";
+
+export type CambioCorte = {
+  /** Alertas del corte anterior que ya no lo son. */
+  resueltas: Combo[];
+  /** Alertas que no estaban y aparecieron. */
+  nuevas: Combo[];
+  /** Alertas que siguen igual o cambiaron de tipo. */
+  vigentes: Combo[];
+  antes: { alertas: number; excedente: number; capital: number; quiebres: number; perdida: number; perdidaPzas: number };
+  hoy: { alertas: number; excedente: number; capital: number; quiebres: number; perdida: number; perdidaPzas: number };
+};
+
+export function cambioDeCorte(combos: Combo[]): CambioCorte {
+  const r: CambioCorte = {
+    resueltas: [],
+    nuevas: [],
+    vigentes: [],
+    antes: { alertas: 0, excedente: 0, capital: 0, quiebres: 0, perdida: 0, perdidaPzas: 0 },
+    hoy: { alertas: 0, excedente: 0, capital: 0, quiebres: 0, perdida: 0, perdidaPzas: 0 },
+  };
+  for (const c of combos) {
+    if (!c.sucursal.reporta) continue;
+    const a = enAlerta(c.claseAnt);
+    const h = enAlerta(c.clase);
+    if (a && !h) r.resueltas.push(c);
+    else if (!a && h) r.nuevas.push(c);
+    else if (a && h) r.vigentes.push(c);
+    if (a) r.antes.alertas++;
+    if (h) r.hoy.alertas++;
+    r.antes.excedente += c.excAnt;
+    r.antes.capital += c.capitalAnt;
+    r.hoy.excedente += c.exc;
+    r.hoy.capital += c.capital;
+    if (c.claseAnt === "quiebre") {
+      r.antes.quiebres++;
+      r.antes.perdida += c.perdidaAnt;
+      if (c.perdidaAnt > 0) r.antes.perdidaPzas += c.soPrev;
+    }
+    if (c.clase === "quiebre") {
+      r.hoy.quiebres++;
+      r.hoy.perdida += c.perdida;
+      if (c.perdida > 0) r.hoy.perdidaPzas += c.so;
+    }
+  }
+  const porImpacto = (x: Combo, y: Combo) => y.impacto - x.impacto;
+  r.nuevas.sort(porImpacto);
+  r.vigentes.sort(porImpacto);
+  r.resueltas.sort((x, y) => y.capitalAnt + y.perdidaAnt * 4 - (x.capitalAnt + x.perdidaAnt * 4));
+  return r;
+}
+
+/**
+ * Las mismas combinaciones, vistas como estaban en el corte anterior.
+ *
+ * Devuelve copias con la existencia, el desplazamiento y el semáforo de hace
+ * una semana, para que porEstado y porSucursal pinten el mapa anterior con
+ * exactamente las mismas reglas que el actual.
+ */
+export function comoEnCorteAnterior(combos: Combo[]): Combo[] {
+  return combos.map((c) => ({
+    ...c,
+    inv: c.invAnt,
+    so: c.soPrev,
+    cob: c.cobAnt,
+    exc: c.excAnt,
+    capital: c.capitalAnt,
+    perdida: c.perdidaAnt,
+    clase: c.claseAnt,
+    impacto: Math.round(c.capitalAnt + c.perdidaAnt * 4),
+  }));
+}
+
+/** El corte anterior al vigente, con la misma forma que CORTE. */
+export const CORTE_ANTERIOR = {
+  semana: CORTE.semana - 1,
+  etiqueta: `${CORTE.anio}-S${CORTE.semana - 1}`,
+};
 
 /* ------------------------------------------------------------------ *
  * Utilidades de formato

@@ -21,7 +21,15 @@
  */
 
 import { marcaPorId, cadenaPorId, estadoPorId } from "./catalog";
-import { PARAMS, type Combo } from "./engine";
+import {
+  PARAMS,
+  PERIODO_TODO,
+  enPeriodo,
+  fracciones,
+  type Combo,
+  type Fracciones,
+  type Periodo,
+} from "./engine";
 
 /* ------------------------------------------------------------------ *
  * Dimensiones: por dónde se puede cortar
@@ -138,6 +146,13 @@ export const dimensionPorId = (id: DimensionId) =>
  * ------------------------------------------------------------------ */
 
 export type MedidaId =
+  | "outPzas"
+  | "outMXN"
+  | "inPzas"
+  | "inMXN"
+  | "indice"
+  | "invMXN"
+  | "perdidaPzas"
   | "piezas"
   | "transito"
   | "soSemana"
@@ -145,7 +160,6 @@ export type MedidaId =
   | "ventaMXN"
   | "ventaAntMXN"
   | "varMXN"
-  | "costoMXN"
   | "cobertura"
   | "excedente"
   | "capital"
@@ -158,7 +172,7 @@ export type MedidaId =
 export type Medida = {
   id: MedidaId;
   nombre: string;
-  grupo: "Venta" | "Inventario" | "Alerta" | "Conteo";
+  grupo: "Periodo" | "Venta" | "Inventario" | "Alerta" | "Conteo";
   formato: "entero" | "decimal" | "dinero" | "porcentaje";
   /** Lo que se acumula por combinación. Las medidas derivadas devuelven 0. */
   suma?: (c: Combo) => number;
@@ -177,7 +191,13 @@ export type Acumulado = {
   soAntSemana: number;
   ventaMXN: number;
   ventaAntMXN: number;
-  costoMXN: number;
+  /** Sell-out y sell-in dentro del periodo elegido, en piezas y en monto. */
+  outPzas: number;
+  outMXN: number;
+  inPzas: number;
+  inMXN: number;
+  invMXN: number;
+  perdidaPzas: number;
   excedente: number;
   capital: number;
   perdida: number;
@@ -187,6 +207,18 @@ export type Acumulado = {
 };
 
 export const MEDIDAS: Medida[] = [
+  { id: "outPzas", nombre: "Sell-out del periodo (pzas)", grupo: "Periodo", formato: "entero" },
+  { id: "outMXN", nombre: "Sell-out del periodo $", grupo: "Periodo", formato: "dinero" },
+  { id: "inPzas", nombre: "Sell-in del periodo (pzas)", grupo: "Periodo", formato: "entero" },
+  { id: "inMXN", nombre: "Sell-in del periodo $", grupo: "Periodo", formato: "dinero" },
+  {
+    id: "indice",
+    nombre: "Índice de desplazamiento %",
+    grupo: "Periodo",
+    formato: "porcentaje",
+    // Vendido entre resurtido, sobre los acumulados del grupo.
+    deriva: (a) => (a.inPzas > 0.5 ? (a.outPzas / a.inPzas) * 100 : 0),
+  },
   {
     id: "soSemana",
     nombre: "Sell-out semanal",
@@ -203,32 +235,25 @@ export const MEDIDAS: Medida[] = [
   },
   {
     id: "ventaMXN",
-    nombre: "Venta $",
+    nombre: `Venta $ ${PARAMS.ventana} semanas`,
     grupo: "Venta",
     formato: "dinero",
     suma: (c) => c.so * PARAMS.ventana * c.precio,
   },
   {
     id: "ventaAntMXN",
-    nombre: "Venta $ año anterior",
+    nombre: `Venta $ ${PARAMS.ventana} sem. año anterior`,
     grupo: "Venta",
     formato: "dinero",
     suma: (c) => c.soAnt * PARAMS.ventana * c.precio,
   },
   {
     id: "varMXN",
-    nombre: "Variación %",
+    nombre: "Variación % contra año anterior",
     grupo: "Venta",
     formato: "porcentaje",
     deriva: (a) =>
       a.ventaAntMXN > 0 ? ((a.ventaMXN - a.ventaAntMXN) / a.ventaAntMXN) * 100 : 0,
-  },
-  {
-    id: "costoMXN",
-    nombre: "Costo $",
-    grupo: "Venta",
-    formato: "dinero",
-    suma: (c) => c.so * PARAMS.ventana * c.costo,
   },
   {
     id: "piezas",
@@ -237,9 +262,10 @@ export const MEDIDAS: Medida[] = [
     formato: "entero",
     suma: (c) => c.inv,
   },
+  { id: "invMXN", nombre: "Inventario en canal $", grupo: "Inventario", formato: "dinero" },
   {
     id: "transito",
-    nombre: "En tránsito",
+    nombre: "En tránsito (pzas)",
     grupo: "Inventario",
     formato: "entero",
     suma: (c) => c.tr,
@@ -255,7 +281,7 @@ export const MEDIDAS: Medida[] = [
   },
   {
     id: "sugerido",
-    nombre: "Resurtido sugerido",
+    nombre: "Resurtido sugerido (pzas)",
     grupo: "Inventario",
     formato: "entero",
     suma: (c) => c.sug,
@@ -274,9 +300,10 @@ export const MEDIDAS: Medida[] = [
     formato: "dinero",
     suma: (c) => c.capital,
   },
+  { id: "perdidaPzas", nombre: "Venta perdida semanal (pzas)", grupo: "Alerta", formato: "decimal" },
   {
     id: "perdida",
-    nombre: "Venta perdida semanal",
+    nombre: "Venta perdida semanal $",
     grupo: "Alerta",
     formato: "dinero",
     suma: (c) => c.perdida,
@@ -319,7 +346,12 @@ function vacio(): Acumulado {
     soAntSemana: 0,
     ventaMXN: 0,
     ventaAntMXN: 0,
-    costoMXN: 0,
+    outPzas: 0,
+    outMXN: 0,
+    inPzas: 0,
+    inMXN: 0,
+    invMXN: 0,
+    perdidaPzas: 0,
     excedente: 0,
     capital: 0,
     perdida: 0,
@@ -329,7 +361,14 @@ function vacio(): Acumulado {
   };
 }
 
-function acumular(a: Acumulado, c: Combo) {
+function acumular(a: Acumulado, c: Combo, f: Fracciones) {
+  const v = enPeriodo(c, f);
+  a.outPzas += v.out;
+  a.outMXN += v.out * c.precio;
+  a.inPzas += v.in;
+  a.inMXN += v.in * c.costo;
+  a.invMXN += c.inv * c.costo;
+  if (c.perdida > 0) a.perdidaPzas += c.so;
   a.n += 1;
   a.piezas += c.inv;
   a.transito += c.tr;
@@ -337,7 +376,6 @@ function acumular(a: Acumulado, c: Combo) {
   a.soAntSemana += c.soAnt;
   a.ventaMXN += c.so * PARAMS.ventana * c.precio;
   a.ventaAntMXN += c.soAnt * PARAMS.ventana * c.precio;
-  a.costoMXN += c.so * PARAMS.ventana * c.costo;
   a.excedente += c.exc;
   a.capital += c.capital;
   a.perdida += c.perdida;
@@ -362,8 +400,18 @@ export function valor(m: Medida, a: Acumulado): number {
       return a.ventaMXN;
     case "ventaAntMXN":
       return a.ventaAntMXN;
-    case "costoMXN":
-      return a.costoMXN;
+    case "outPzas":
+      return a.outPzas;
+    case "outMXN":
+      return a.outMXN;
+    case "inPzas":
+      return a.inPzas;
+    case "inMXN":
+      return a.inMXN;
+    case "invMXN":
+      return a.invMXN;
+    case "perdidaPzas":
+      return a.perdidaPzas;
     case "excedente":
       return a.excedente;
     case "capital":
@@ -406,7 +454,8 @@ export type Config = {
  * Arma la tabla. Devuelve las filas ya aplanadas en el orden en que se
  * dibujan, con su nivel, para que la pantalla solo tenga que pintarlas.
  */
-export function pivotar(combos: Combo[], cfg: Config): Resultado {
+export function pivotar(combos: Combo[], cfg: Config, periodo: Periodo = PERIODO_TODO): Resultado {
+  const fr = fracciones(periodo);
   const dimsFila = cfg.filas.slice(0, 3).map(dimensionPorId);
   const dimCol = cfg.columna ? dimensionPorId(cfg.columna) : null;
 
@@ -450,7 +499,7 @@ export function pivotar(combos: Combo[], cfg: Config): Resultado {
         a = vacio();
         n.celdas.set(k, a);
       }
-      acumular(a, c);
+      acumular(a, c, fr);
     }
     n.peso += c.so * c.precio;
   };

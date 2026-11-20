@@ -6,19 +6,12 @@ import { Descarga, useBase } from "@/components/descarga";
 import { libroEjecucion } from "@/lib/libros";
 import { Tile, Chip, Mono, Accion, Tabla, type Col } from "@/components/ui";
 import { Sparkline, Barras } from "@/components/charts";
-import {
-  fmt,
-  money,
-  moneyCorto,
-  traslados,
-  PARAMS,
-  type Combo,
-} from "@/lib/engine";
+import { fmt, money, moneyCorto, PARAMS, type Combo } from "@/lib/engine";
 
-type Pestana = "todo" | "noembarcar" | "trasladar" | "resurtir" | "liquidar";
+type Pestana = "todo" | "noresurtir" | "resurtir" | "liquidar";
 
 export default function Ejecucion() {
-  const { vista, filtro, registrar, bitacora } = useBI();
+  const { vista, filtro } = useBI();
   const base = useBase();
   const [tab, setTab] = useState<Pestana>("todo");
 
@@ -31,20 +24,25 @@ export default function Ejecucion() {
     () => vista.filter((c) => c.edad > 360 && c.inv > 0),
     [vista]
   );
-  const mover = useMemo(() => traslados(sobre, vista, 14), [sobre, vista]);
 
   const capital = sobre.reduce((a, c) => a + c.capital, 0);
+  const excedente = sobre.reduce((a, c) => a + c.exc, 0);
   const perdida = quiebres.reduce((a, c) => a + c.perdida, 0);
-  const fleteTotal = mover.reduce((a, t) => a + t.costo, 0);
-  const recuperaTotal = mover.reduce((a, t) => a + t.recupera, 0);
+  const perdidaPzas = quiebres.reduce((a, c) => a + (c.perdida > 0 ? c.so : 0), 0);
+  const sugerido = quiebres.reduce((a, c) => a + c.sug, 0);
+  const sugeridoMonto = quiebres.reduce((a, c) => a + c.sug * c.costo, 0);
+  const viejasPzas = viejos.reduce((a, c) => a + c.inv, 0);
+  const viejasMonto = viejos.reduce((a, c) => a + c.inv * c.costo, 0);
 
   const porColeccion = useMemo(() => {
-    const m = new Map<string, { n: string; perdida: number; quiebres: number }>();
+    const m = new Map<string, { n: string; perdida: number; pzas: number; sug: number; quiebres: number }>();
     for (const c of quiebres) {
       const k = c.coleccion.id;
-      if (!m.has(k)) m.set(k, { n: c.coleccion.nombre, perdida: 0, quiebres: 0 });
+      if (!m.has(k)) m.set(k, { n: c.coleccion.nombre, perdida: 0, pzas: 0, sug: 0, quiebres: 0 });
       const r = m.get(k)!;
       r.perdida += c.perdida;
+      r.pzas += c.perdida > 0 ? c.so : 0;
+      r.sug += c.sug;
       r.quiebres++;
     }
     return [...m.values()]
@@ -54,12 +52,22 @@ export default function Ejecucion() {
         n: r.n,
         v: r.perdida,
         c: "var(--warn)",
-        lbl: moneyCorto(r.perdida),
+        lbl: `${moneyCorto(r.perdida)} · ${fmt(r.pzas)} pzas`,
         tip: (
-          <div className="r">
-            <span>Tiendas en cero</span>
-            <b>{r.quiebres}</b>
-          </div>
+          <>
+            <div className="r">
+              <span>Combinaciones en quiebre</span>
+              <b>{r.quiebres}</b>
+            </div>
+            <div className="r">
+              <span>Piezas perdidas por semana</span>
+              <b>{fmt(r.pzas)} pzas</b>
+            </div>
+            <div className="r">
+              <span>Resurtido sugerido</span>
+              <b>{fmt(r.sug)} pzas</b>
+            </div>
+          </>
         ),
       }));
   }, [quiebres]);
@@ -91,27 +99,28 @@ export default function Ejecucion() {
       ),
     },
     { t: "12 sem", f: (c) => <Sparkline valores={c.hist} color={modo === "qui" ? "var(--warn)" : "var(--s1)"} /> },
-    { t: "Exist.", n: true, f: (c) => fmt(c.inv) },
+    { t: "Exist. (pzas)", n: true, f: (c) => fmt(c.inv) },
     { t: "Sell-out/sem", n: true, f: (c) => fmt(c.so, 1) },
     ...(modo === "sat"
       ? ([
           { t: "Cobertura", n: true, f: (c: Combo) => (c.cob > 50 ? "∞" : fmt(c.cob, 1)) },
-          { t: "Sobre umbral", n: true, f: (c: Combo) => fmt(c.exc) },
-          { t: "Capital", n: true, f: (c: Combo) => moneyCorto(c.capital) },
+          { t: "Sobre umbral (pzas)", n: true, f: (c: Combo) => <strong>{fmt(c.exc)}</strong> },
+          { t: "Capital parado", n: true, f: (c: Combo) => moneyCorto(c.capital) },
+          { t: "Tránsito (pzas)", n: true, f: (c: Combo) => fmt(c.tr) },
         ] as Col<Combo>[])
       : modo === "qui"
         ? ([
-            { t: "Tránsito", n: true, f: (c: Combo) => fmt(c.tr) },
-            { t: "Sugerido", n: true, f: (c: Combo) => <strong>{fmt(c.sug)}</strong> },
+            { t: "Tránsito (pzas)", n: true, f: (c: Combo) => fmt(c.tr) },
+            { t: "Sugerido (pzas)", n: true, f: (c: Combo) => <strong>{fmt(c.sug)}</strong> },
+            { t: "Sugerido en sell-in", n: true, f: (c: Combo) => moneyCorto(c.sug * c.costo) },
             { t: "Venta perdida/sem", n: true, f: (c: Combo) => money(c.perdida) },
           ] as Col<Combo>[])
         : ([
             { t: "Días en canal", n: true, f: (c: Combo) => fmt(c.edad) },
             {
-              t: "Valor a costo",
+              t: "Valor $",
               n: true,
-              f: (c: Combo) =>
-                moneyCorto(c.inv * c.coleccion.precio * (1 - c.coleccion.margen)),
+              f: (c: Combo) => moneyCorto(c.inv * c.costo),
             },
           ] as Col<Combo>[])),
     { t: "Estado", f: (c) => <Chip clase={c.clase} /> },
@@ -119,8 +128,7 @@ export default function Ejecucion() {
 
   const pestanas: { k: Pestana; t: string; n: number }[] = [
     { k: "todo", t: "Resumen", n: 0 },
-    { k: "noembarcar", t: "No embarcar", n: sobre.length },
-    { k: "trasladar", t: "Trasladar", n: mover.length },
+    { k: "noresurtir", t: "No resurtir", n: sobre.length },
     { k: "resurtir", t: "Resurtir", n: quiebres.length },
     { k: "liquidar", t: "Liquidar", n: viejos.length },
   ];
@@ -129,35 +137,46 @@ export default function Ejecucion() {
     <div className="view">
       <div className="tiles">
         <Tile
-          k="No embarcar"
+          k="No resurtir"
           v={fmt(sobre.length)}
+          s={`${fmt(excedente)} pzas`}
           tono="flag"
-          n={`${moneyCorto(capital)} de capital parado`}
-        />
-        <Tile
-          k="Traslados que pagan flete"
-          v={fmt(mover.length)}
-          tono="accent"
-          n={`${money(fleteTotal)} de flete contra ${money(recuperaTotal)}/sem`}
+          n={`${moneyCorto(capital)} de capital parado sobre el umbral`}
         />
         <Tile
           k="Resurtir"
           v={fmt(quiebres.length)}
+          s={`${fmt(sugerido)} pzas`}
           tono="flag"
-          n={`${moneyCorto(perdida)} de venta perdida semanal`}
+          n={`${moneyCorto(sugeridoMonto)} de sell-in sugerido para cerrar quiebres`}
+        />
+        <Tile
+          k="Venta perdida semanal"
+          v={moneyCorto(perdida)}
+          s={`${fmt(perdidaPzas)} pzas`}
+          tono="flag"
+          n="Lo que el consumidor no encuentra cada semana"
         />
         <Tile
           k="Liquidar"
           v={fmt(viejos.length)}
-          n={`${fmt(viejos.reduce((a, c) => a + c.inv, 0))} piezas con más de un año`}
+          s={`${fmt(viejasPzas)} pzas`}
+          n={`${moneyCorto(viejasMonto)} con más de un año en la tienda`}
         />
         <Tile
           k="Costo de no hacer nada"
-          v={moneyCorto(perdida * 4.3 + (capital * 0.18) / 12)}
+          v={moneyCorto(perdida * 4.3 + (capital * PARAMS.costoCapitalAnual) / 12)}
+          s={`${fmt(perdidaPzas * 4.3)} pzas`}
           tono="flag"
-          n="Un mes más con la operación igual"
+          n="Piezas y venta que se pierden en un mes más igual"
         />
-        <Tile k="Decisiones registradas" v={fmt(bitacora.length)} n="En esta sesión" />
+        <Tile
+          k="Piezas en tránsito"
+          v={fmt(vista.reduce((a, c) => a + c.tr, 0))}
+          u="pzas"
+          s={moneyCorto(vista.reduce((a, c) => a + c.tr * c.costo, 0))}
+          n={`${fmt(sobre.reduce((a, c) => a + c.tr, 0))} pzas van a combinaciones que ya rebasan el umbral`}
+        />
       </div>
 
       <div className="card" style={{ paddingTop: 12, paddingBottom: 12 }}>
@@ -169,110 +188,81 @@ export default function Ejecucion() {
               onClick={() => setTab(x.k)}
             >
               {x.t}
-              {x.n ? (
-                <span
-                  style={{
-                    background: tab === x.k ? "var(--accent)" : "var(--surface-2)",
-                    color: tab === x.k ? "#fff" : "var(--ink-3)",
-                    borderRadius: 999,
-                    padding: "0 7px",
-                    fontSize: 11,
-                    fontWeight: 700,
-                  }}
-                >
-                  {fmt(x.n)}
-                </span>
-              ) : null}
+              {x.n ? <span className="cuenta-tab">{fmt(x.n)}</span> : null}
             </button>
           ))}
         </div>
       </div>
 
       {tab === "todo" ? (
-        <>
-          <div className="cols-2">
-            <div className="card">
-              <h3>El orden de las decisiones</h3>
-              <p className="sub">
-                Primero mover lo que ya está pagado, después dejar de embarcar lo saturado, y solo
-                al final comprometer piezas nuevas.
-              </p>
-              <Accion
-                tipo="mv"
-                titulo="1. Trasladar"
-                nota={`${mover.length} movimientos dentro de la misma cadena`}
-              >
-                {mover.slice(0, 4).map((t, i) => (
-                  <li key={i}>
-                    <em>{fmt(t.piezas)} pzas</em> de <b>{t.origen.sucursal.plaza}</b> a{" "}
-                    <b>{t.destino.sucursal.plaza}</b> — {t.origen.modelo.sku}. Cubre{" "}
-                    <em>{fmt(t.semanas, 1)}</em> semanas y frena <em>{money(t.recupera)}</em> por
-                    semana, con {money(t.costo)} de flete.
+        <div className="cols-2">
+          <div className="card">
+            <h3>El orden de las decisiones</h3>
+            <p className="sub">
+              Primero dejar de resurtir lo que ya rebasa el umbral, y después resurtir solo lo que
+              está en quiebre y sí se vende.
+            </p>
+            <Accion
+              tipo="no"
+              titulo="1. No resurtir"
+              nota={`${fmt(sobre.length)} combinaciones · ${fmt(excedente)} pzas sobre el umbral`}
+            >
+              {sobre
+                .slice()
+                .sort((a, b) => b.capital - a.capital)
+                .slice(0, 5)
+                .map((c) => (
+                  <li key={c.id}>
+                    <b>{c.sucursal.plaza}</b> · {c.modelo.sku} — <em>{fmt(c.inv)} pzas</em>,{" "}
+                    {c.cob > 50 ? "∞" : fmt(c.cob, 1)} semanas, <em>{fmt(c.exc)} pzas</em> de más (
+                    {moneyCorto(c.capital)})
+                    {c.tr ? ` · ${c.tr} pzas ya van en tránsito` : ""}
                   </li>
                 ))}
-                {mover.length === 0 ? <li>No hay traslados que paguen su flete con estos filtros.</li> : null}
-              </Accion>
-              <div style={{ height: 10 }} />
-              <Accion
-                tipo="no"
-                titulo="2. No embarcar"
-                nota={`${sobre.length} combinaciones sobre el umbral`}
-              >
-                {sobre
-                  .slice()
-                  .sort((a, b) => b.capital - a.capital)
-                  .slice(0, 4)
-                  .map((c) => (
-                    <li key={c.id}>
-                      <b>{c.sucursal.plaza}</b> · {c.modelo.sku} — <em>{fmt(c.inv)} pzas</em>,{" "}
-                      {c.cob > 50 ? "∞" : fmt(c.cob, 1)} semanas, <em>{moneyCorto(c.capital)}</em> a
-                      costo
-                      {c.tr ? ` · ${c.tr} ya van en tránsito` : ""}
-                    </li>
-                  ))}
-              </Accion>
-              <div style={{ height: 10 }} />
-              <Accion
-                tipo="re"
-                titulo="3. Resurtir"
-                nota={`${quiebres.length} en cero con desplazamiento`}
-              >
-                {quiebres
-                  .slice()
-                  .sort((a, b) => b.perdida - a.perdida)
-                  .slice(0, 4)
-                  .map((c) => (
-                    <li key={c.id}>
-                      <b>{c.sucursal.plaza}</b> · {c.modelo.sku} — sugerido{" "}
-                      <em>{fmt(c.sug)} pzas</em>, venta perdida <em>{money(c.perdida)}</em> por
-                      semana
-                      {c.tr ? ` · ${c.tr} en tránsito` : ""}
-                    </li>
-                  ))}
-              </Accion>
-            </div>
-
-            <div className="card">
-              <h3>Venta perdida por colección</h3>
-              <p className="sub">
-                Dónde duele más el quiebre. Es la lista que decide la prioridad del siguiente
-                embarque.
-              </p>
-              {porColeccion.length ? (
-                <Barras datos={porColeccion} anchoEtiqueta={140} />
-              ) : (
-                <div className="empty">Sin quiebres con los filtros actuales.</div>
-              )}
-              <p className="note">
-                Estimada a precio de lista sobre el desplazamiento promedio de {PARAMS.ventana}{" "}
-                semanas. Es un techo, no una cifra contable.
-              </p>
-            </div>
+              {sobre.length === 0 ? <li>Ninguna combinación rebasa el umbral con estos filtros.</li> : null}
+            </Accion>
+            <div style={{ height: 10 }} />
+            <Accion
+              tipo="re"
+              titulo="2. Resurtir"
+              nota={`${fmt(quiebres.length)} en quiebre · ${fmt(sugerido)} pzas sugeridas`}
+            >
+              {quiebres
+                .slice()
+                .sort((a, b) => b.perdida - a.perdida)
+                .slice(0, 5)
+                .map((c) => (
+                  <li key={c.id}>
+                    <b>{c.sucursal.plaza}</b> · {c.modelo.sku} — sugerido{" "}
+                    <em>{fmt(c.sug)} pzas</em> ({moneyCorto(c.sug * c.costo)}), venta perdida de{" "}
+                    <em>{fmt(c.so, 1)} pzas</em> y <em>{money(c.perdida)}</em> por semana
+                    {c.tr ? ` · ${c.tr} pzas en tránsito` : ""}
+                  </li>
+                ))}
+              {quiebres.length === 0 ? <li>Sin quiebres con estos filtros.</li> : null}
+            </Accion>
           </div>
-        </>
+
+          <div className="card">
+            <h3>Venta perdida por colección</h3>
+            <p className="sub">
+              Dónde duele más el quiebre, en pesos y en piezas por semana. Es la lista que decide la
+              prioridad del siguiente resurtido.
+            </p>
+            {porColeccion.length ? (
+              <Barras datos={porColeccion} anchoEtiqueta={140} />
+            ) : (
+              <div className="empty">Sin quiebres con los filtros actuales.</div>
+            )}
+            <p className="note">
+              Estimada a precio de lista sobre el desplazamiento promedio de {PARAMS.ventana}{" "}
+              semanas. Es un techo, no una cifra contable.
+            </p>
+          </div>
+        </div>
       ) : null}
 
-      {tab === "noembarcar" ? (
+      {tab === "noresurtir" ? (
         <div className="card">
           <h3>Combinaciones sobre el umbral</h3>
           <p className="sub">
@@ -287,106 +277,20 @@ export default function Ejecucion() {
           </div>
           <div className="tfoot">
             <span>
-              {fmt(sobre.length)} combinaciones · {moneyCorto(capital)} a costo
+              {fmt(sobre.length)} combinaciones · {fmt(excedente)} pzas sobre el umbral ·{" "}
+              {moneyCorto(capital)} a precio de venta a la cadena
             </span>
-          </div>
-        </div>
-      ) : null}
-
-      {tab === "trasladar" ? (
-        <div className="card">
-          <h3>Traslados sugeridos</h3>
-          <p className="sub">
-            Solo dentro de la misma cadena: una pieza ya embarcada pertenece al retailer que la
-            compró. Entre cadenas distintas no hay traslado, hay renegociación de embarque.
-          </p>
-          <div className="tablewrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Origen</th>
-                  <th>Destino</th>
-                  <th>Modelo</th>
-                  <th className="n">Piezas</th>
-                  <th className="n">Cubre</th>
-                  <th className="n">Frena/sem</th>
-                  <th className="n">Flete</th>
-                  <th>Alcance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mover.length === 0 ? (
-                  <tr>
-                    <td colSpan={8}>
-                      <div className="empty">
-                        No hay traslados que cumplan los criterios con estos filtros.
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  mover.map((t, i) => (
-                    <tr key={i}>
-                      <td className="name">
-                        <strong>{t.origen.sucursal.plaza}</strong>
-                        <br />
-                        <span>{fmt(t.origen.exc)} excedentes</span>
-                      </td>
-                      <td className="name">
-                        <strong>{t.destino.sucursal.plaza}</strong>
-                        <br />
-                        <span>en cero</span>
-                      </td>
-                      <td className="name">
-                        <strong>{t.origen.modelo.sku}</strong>
-                        <br />
-                        <span>{t.origen.coleccion.nombre}</span>
-                      </td>
-                      <td className="n">
-                        <strong>{fmt(t.piezas)}</strong>
-                      </td>
-                      <td className="n">{fmt(t.semanas, 1)} sem</td>
-                      <td className="n">{money(t.recupera)}</td>
-                      <td className="n">{money(t.costo)}</td>
-                      <td>
-                        <span className="chip neutro">
-                          {t.salto === 0 ? "Misma plaza" : "Entre plazas"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="tfoot">
-            <span>
-              {money(fleteTotal)} de flete total contra {money(recuperaTotal)} de venta perdida
-              semanal que deja de correr
-            </span>
-            <button
-              className="btn sm"
-              disabled={!mover.length}
-              onClick={() =>
-                registrar({
-                  alertaId: "traslados",
-                  titulo: `${mover.length} traslados autorizados`,
-                  accion: "aceptada",
-                  valor: recuperaTotal * 4 - fleteTotal,
-                })
-              }
-            >
-              Autorizar todos
-            </button>
           </div>
         </div>
       ) : null}
 
       {tab === "resurtir" ? (
         <div className="card">
-          <h3>Resurtido sugerido</h3>
+          <h3>Combinaciones en quiebre</h3>
           <p className="sub">
-            Stock objetivo menos existencia menos unidades en tránsito. Nunca propone más que la
-            brecha, y no genera ni envía órdenes: se exporta para que una persona lo capture.
+            Modelos que sí se venden en la tienda y están en cero o por agotarse. El sugerido deja
+            a la tienda con {PARAMS.diasObjetivo} días de inventario, descontando lo que ya va en
+            tránsito.
           </p>
           <div className="tablewrap">
             <Tabla
@@ -396,8 +300,9 @@ export default function Ejecucion() {
           </div>
           <div className="tfoot">
             <span>
-              {fmt(quiebres.reduce((a, c) => a + c.sug, 0))} piezas sugeridas ·{" "}
-              {moneyCorto(perdida)} de venta perdida semanal
+              {fmt(quiebres.length)} combinaciones · {fmt(sugerido)} pzas sugeridas ·{" "}
+              {moneyCorto(sugeridoMonto)} de sell-in · {fmt(perdidaPzas)} pzas y {moneyCorto(perdida)}{" "}
+              de venta perdida por semana
             </span>
           </div>
         </div>
@@ -408,7 +313,8 @@ export default function Ejecucion() {
           <h3>Inventario con más de un año en canal</h3>
           <p className="sub">
             Cada semana que pasa vale menos y ocupa un espacio de anaquel que el comprador puede
-            reasignar a otra marca.
+            reasignar a otra marca. Es producto de la cadena: lo que toca es acordar con ella su
+            salida.
           </p>
           <div className="tablewrap">
             <Tabla
@@ -418,21 +324,16 @@ export default function Ejecucion() {
           </div>
           <div className="tfoot">
             <span>
-              {fmt(viejos.reduce((a, c) => a + c.inv, 0))} piezas ·{" "}
-              {moneyCorto(
-                viejos.reduce(
-                  (a, c) => a + c.inv * c.coleccion.precio * (1 - c.coleccion.margen),
-                  0
-                )
-              )}{" "}
-              a costo
+              {fmt(viejos.length)} combinaciones · {fmt(viejasPzas)} pzas · {moneyCorto(viejasMonto)} a
+              costo
             </span>
           </div>
         </div>
       ) : null}
+
       <Descarga
         titulo="Las decisiones de la semana en Excel"
-        contenido="Traslados, no embarcar, resurtir y liquidar, cada uno en su hoja y con sus fórmulas. El flete, el umbral y los días objetivo son celdas vivas."
+        contenido="No resurtir, resurtir y liquidar, cada uno en su hoja, con piezas, monto y fórmulas. El umbral y los días objetivo son celdas vivas."
         armar={() => libroEjecucion(base)}
       />
     </div>

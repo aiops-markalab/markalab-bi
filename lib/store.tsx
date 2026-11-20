@@ -21,11 +21,13 @@ import {
   derivar,
   filtrar,
   indicadores,
+  periodoDe,
   PARAMS,
   type Combo,
   type Dataset,
   type Filtro,
   type Indicadores,
+  type Periodo,
 } from "./engine";
 import { ESCENARIOS_BASE, type Escenario } from "./plan";
 
@@ -44,6 +46,10 @@ type Ctx = {
   setMaterial: (v: string) => void;
   setModelo: (v: string) => void;
   setUmbral: (v: number) => void;
+  /** El periodo de análisis ya resuelto a días de la historia. */
+  periodo: Periodo;
+  /** Fechas ISO; las dos vacías regresan a toda la historia cargada. */
+  setPeriodo: (desde: string, hasta: string) => void;
   limpiar: () => void;
   /** Escenario de planeación activo. */
   escenarios: Escenario[];
@@ -83,6 +89,8 @@ export function Proveedor({ children }: { children: ReactNode }) {
   const [ciudad, setCiudadRaw] = useState("");
   const [modelo, setModelo] = useState("");
   const [umbral, setUmbralRaw] = useState(PARAMS.umbral);
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
   const [escenarioId, setEscenarioId] = useState("base");
   const [escenarios, setEscenarios] = useState<Escenario[]>(ESCENARIOS_BASE);
   const [tema, setTemaRaw] = useState<"auto" | "light" | "dark">("auto");
@@ -95,9 +103,26 @@ export function Proveedor({ children }: { children: ReactNode }) {
   }, [data, umbral]);
 
   const filtro: Filtro = useMemo(
-    () => ({ estado, ciudad, cadena, marca, coleccion, modelo, genero, material, umbral }),
-    [estado, ciudad, cadena, marca, coleccion, modelo, genero, material, umbral]
+    () => ({
+      estado,
+      ciudad,
+      cadena,
+      marca,
+      coleccion,
+      modelo,
+      genero,
+      material,
+      umbral,
+      desde: desde || undefined,
+      hasta: hasta || undefined,
+    }),
+    [estado, ciudad, cadena, marca, coleccion, modelo, genero, material, umbral, desde, hasta]
   );
+  const periodo = useMemo(() => periodoDe({ desde: desde || undefined, hasta: hasta || undefined }), [desde, hasta]);
+  const setPeriodo = useCallback((d: string, h: string) => {
+    setDesde(d);
+    setHasta(h);
+  }, []);
 
   /* Los filtros son jerárquicos: cambiar el padre limpia al hijo para que
      nunca quede una combinación imposible, como Jalisco + Cancún. */
@@ -118,10 +143,7 @@ export function Proveedor({ children }: { children: ReactNode }) {
   }, []);
 
   const vista = useMemo(() => filtrar(combos, filtro), [combos, filtro]);
-  const ind = useMemo(
-    () => indicadores(vista, data.serie, combos),
-    [vista, data.serie, combos]
-  );
+  const ind = useMemo(() => indicadores(vista, periodo), [vista, periodo]);
 
   const setUmbral = useCallback((v: number) => setUmbralRaw(v), []);
   const limpiar = useCallback(() => {
@@ -133,6 +155,8 @@ export function Proveedor({ children }: { children: ReactNode }) {
     setModelo("");
     setGenero("");
     setMaterial("");
+    setDesde("");
+    setHasta("");
   }, []);
 
   const actualizarEscenario = useCallback(
@@ -196,6 +220,8 @@ export function Proveedor({ children }: { children: ReactNode }) {
     setMaterial,
     setModelo,
     setUmbral,
+    periodo,
+    setPeriodo,
     limpiar,
     escenarios,
     escenarioId,

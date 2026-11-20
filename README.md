@@ -122,12 +122,12 @@ El flujo trae su propio respaldo: si el modelo falla, el nodo **Respaldo** devue
 
 | Pantalla                 | Qué resuelve                                                                                      |
 | ------------------------ | ------------------------------------------------------------------------------------------------- |
-| **Resumen**              | Salud del canal en una pantalla: sell-in contra sell-out, cobertura por cadena, qué atender         |
-| **Mapa de alertas**      | Semáforo por estado sobre el mapa real, con una bandera por sucursal con alerta                     |
-| **Qué atender**          | Las decisiones de la semana en orden: trasladar, no embarcar, resurtir, liquidar                    |
+| **Resumen**              | Salud del canal en piezas y pesos: sell-out y sell-in del periodo, Top 10 de cada uno, qué atender  |
+| **Mapa de alertas**      | El corte anterior junto al actual: qué alertas se resolvieron, cuáles son nuevas y cuáles siguen    |
+| **Qué atender**          | Las decisiones de la semana en orden: no resurtir, resurtir, liquidar                               |
 | **Detalle por tienda**   | El detalle crudo a nivel tienda × modelo, filtrable y ordenable                                     |
-| **Escenarios**           | Supuestos editables que se propagan por el modelo hasta EBITDA                                      |
-| **Estado de resultados** | P&L proyectado por trimestre, contra el plan comprometido                                           |
+| **Escenarios**           | Supuestos editables que se propagan por el modelo hasta EBITDA, todo sobre sell-in                  |
+| **Estado de resultados** | P&L proyectado por trimestre sobre sell-in, contra el plan comprometido                             |
 | **Copiloto**             | Hallazgos priorizados, explicables y accionables, con bitácora de decisiones                        |
 | **Salud del dato**       | Qué porcentaje del negocio es visible y cómo se calcula cada métrica                                |
 
@@ -135,7 +135,7 @@ El flujo trae su propio respaldo: si el modelo falla, el nodo **Respaldo** devue
 
 ## La jerarquía de filtros
 
-La barra superior filtra en cinco dimensiones, más el umbral:
+La barra superior filtra en cinco dimensiones, más el umbral y el periodo:
 
 ```
 Estado  ->  Ciudad  ->  (sucursal)
@@ -145,7 +145,9 @@ Colección  ->  Modelo (SKU)
 
 Las listas se encadenan: elegir un estado deja solo sus ciudades, y elegir una colección deja solo sus referencias. Cambiar el padre limpia al hijo, así nunca queda una combinación imposible como Jalisco + Cancún. El botón **Quitar filtros** muestra cuántos hay puestos.
 
-**Colección y modelo no son lo mismo.** Tsuyosa es la colección; `CTZ-TS1525 · Tsuyosa Acero Azul 40mm` es el modelo. Las alertas, los traslados y el resurtido se calculan siempre al nivel de modelo, porque es el nivel al que se embarca: un quiebre de `CTZ-TS1525` no se cubre con un `CTZ-TS1402`, aunque sean la misma colección. Los indicadores se pueden leer agregados en cualquiera de los tres niveles de la jerarquía de producto: segmento, colección, modelo.
+**El periodo va junto al umbral.** El umbral contesta «cuántas semanas son demasiadas»; el periodo, «de qué día a qué día estoy viendo». Se elige con un atajo, con dos clics en el calendario o con la semana completa. Sell-out, sell-in y los Top 10 se suman dentro del periodo; inventario, cobertura y alertas son del corte y no se suman por fechas.
+
+**Colección y modelo no son lo mismo.** Tsuyosa es la colección; `CTZ-TS1525 · Tsuyosa Acero Azul 40mm` es el modelo. Las alertas y el resurtido se calculan siempre al nivel de modelo, porque es el nivel al que se resurte: un quiebre de `CTZ-TS1525` no se cubre con un `CTZ-TS1402`, aunque sean la misma colección. Los indicadores se pueden leer agregados en cualquiera de los tres niveles de la jerarquía de producto: segmento, colección, modelo.
 
 ## Las fórmulas
 
@@ -155,21 +157,25 @@ Están declaradas en el código y se pueden discutir renglón por renglón. La p
 desplazamiento semanal = Σ sell-out últimas 8 semanas ÷ 8
 semanas de cobertura   = existencia ÷ desplazamiento semanal
 piezas sobre umbral    = existencia − (desplazamiento × umbral)
-capital inmovilizado   = piezas sobre umbral × costo unitario
+capital inmovilizado   = piezas sobre umbral × precio de venta a la cadena
 venta perdida semanal  = desplazamiento × precio de lista      (solo si existencia = 0)
 resurtido sugerido     = stock objetivo − existencia − tránsito
 impacto en pesos       = capital inmovilizado + venta perdida × 4
+sell-out del periodo   = piezas vendidas al público, del día al día elegido   ($ a precio de lista)
+sell-in del periodo    = piezas resurtidas a las cadenas, del día al día      ($ a precio de venta a la cadena)
 ```
 
 Propagación del modelo de planeación (`lib/plan.ts`):
 
 ```
-unidades = base × crecimiento × efecto precio × servicio × mercadotecnia × anaquel
-ingreso  = unidades × precio neto
-costo    = unidades × costo unitario
+piezas   = sell-in base × crecimiento × efecto precio × servicio × mercadotecnia × anaquel
+ingreso  = piezas × precio de venta a la cadena
+costo    = piezas × costo del producto para la marca
 margen   = ingreso − costo
 EBITDA   = margen − gasto operativo − costo financiero del inventario
 ```
+
+Todo el plan corre sobre **sell-in**: lo que la marca le vende a las cadenas. El sell-out no entra a la proyección; aparece aparte, como lo que cada cadena ya vendió.
 
 ---
 
@@ -177,9 +183,11 @@ EBITDA   = margen − gasto operativo − costo financiero del inventario
 
 **Las banderas no llevan los logos de las cadenas.** Liverpool, El Palacio de Hierro, Sears y Sanborns son marcas registradas de terceros. Las banderas usan monogramas de diseño propio (`LIV`, `PDH`, `SEA`, `SAN`) en el color de casa de cada cadena. Se leen igual de rápido y no hay riesgo de marca. El componente está en `components/ui.tsx` si algún día se cuenta con assets autorizados.
 
-**Los traslados exigen el mismo SKU y la misma cadena.** Una pieza ya embarcada es inventario del retailer que la compró; no se mueve de Liverpool a Sears. Entre cadenas distintas no hay traslado, hay renegociación de embarque. Y el modelo tiene que coincidir: el cliente que pidió el Acero Azul no se lleva el Acero Verde.
+**No hay traslados.** Una pieza ya resurtida es inventario de la cadena que la compró: moverla entre tiendas es decisión de la cadena, no de la marca. La plataforma solo propone lo que la marca sí controla: no resurtir donde sobra, resurtir donde falta y liquidar lo envejecido.
 
-**Una tienda que no reporta sell-out no tiene cobertura calculable.** Sin denominador no hay cálculo. Esas sucursales muestran existencia pero aparecen *Sin dato* en vez de aparecer en verde, y se excluyen del excedente y de los traslados.
+**Siempre piezas y monto.** Ninguna cifra va sola en porcentaje: cada indicador dice cuántas piezas son y cuánto valen. El sell-out se valúa a precio de lista; el sell-in, el inventario y el capital inmovilizado, al precio al que la marca le vende a la cadena.
+
+**Una tienda que no reporta sell-out no tiene cobertura calculable.** Sin denominador no hay cálculo. Esas sucursales muestran existencia pero aparecen *Sin dato* en vez de aparecer en verde, y se excluyen del excedente y del resurtido sugerido.
 
 **El estado del mapa no es el promedio de sus tiendas.** Un estado con la mitad del surtido saturado y la otra mitad en quiebre promedia «sano». Por eso el color se decide por dónde está el dinero (capital parado contra venta perdida), no por la cobertura promedio.
 

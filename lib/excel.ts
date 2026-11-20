@@ -8,7 +8,7 @@
  * alguien suma mal en una junta.
  */
 
-import { PARAMS, type Combo } from "./engine";
+import { PARAMS, PERIODO_TODO, enPeriodo, fracciones, type Combo, type Fracciones, type Periodo } from "./engine";
 import { marcaPorId, cadenaPorId, estadoPorId } from "./catalog";
 
 /** Una celda: texto o número. `null` deja la celda vacía. */
@@ -20,6 +20,8 @@ export const COLUMNAS_EXCEL = [
   "Sell-out 8 sem ant", "Venta $", "Venta $ año ant", "Costo $", "Cobertura sem", "Excedente",
   "Capital inmovilizado", "Venta perdida sem", "Sugerido", "Impacto $", "Días en canal", "Sell-out última sem",
   "Sell-out 4 sem", "Reporta",
+  "Sell-out periodo", "Sell-out periodo $", "Sell-in periodo", "Sell-in periodo $",
+  "Piezas corte ant", "Sell-out sem corte ant",
 ] as const;
 
 export const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -45,9 +47,23 @@ export function enHoja(c: Combo) {
   };
 }
 
+/**
+ * Lo que una combinación vendió y recibió dentro del periodo, tal como queda
+ * en la hoja Datos. El sell-out va a precio de lista; el sell-in, al precio
+ * al que la marca le vende a la cadena.
+ */
+export function enHojaPeriodo(c: Combo, f: Fracciones) {
+  const v = enPeriodo(c, f);
+  const out = r4(v.out);
+  const ent = r4(v.in);
+  return { out, outMonto: Math.round(v.out * c.precio), in: ent, inMonto: Math.round(v.in * c.costo) };
+}
+
 /** Aplana el corte a los renglones que espera la hoja Datos. */
-export function filasExcel(combos: Combo[]): Celda[][] {
+export function filasExcel(combos: Combo[], periodo: Periodo = PERIODO_TODO): Celda[][] {
+  const f = fracciones(periodo);
   return combos.map((c) => {
+    const pp = enHojaPeriodo(c, f);
     const cad = cadenaPorId(c.sucursal.cadenaId);
     const x = enHoja(c);
     const h = c.hist;
@@ -88,6 +104,12 @@ export function filasExcel(combos: Combo[]): Celda[][] {
       // Reporta va explícito, con 1 y 0: las fórmulas lo usan para no calcular
       // excedente donde no hay sell-out.
       c.sucursal.reporta ? 1 : 0,
+      pp.out,
+      pp.outMonto,
+      pp.in,
+      pp.inMonto,
+      c.invAnt,
+      r4(c.soPrev),
     ];
   });
 }

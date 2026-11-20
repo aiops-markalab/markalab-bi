@@ -15,7 +15,7 @@
 
 import { useMemo, useState } from "react";
 import { useBI } from "@/lib/store";
-import { CORTE, fmt } from "@/lib/engine";
+import { CORTE, etiquetaPeriodo, fmt } from "@/lib/engine";
 import { Descarga, useBase } from "@/components/descarga";
 import { descargar } from "@/lib/excel";
 import { libroReporte, libroSimulador } from "@/lib/libros";
@@ -43,7 +43,7 @@ const PLANTILLAS: Plantilla[] = [
     nombre: "Resumen ejecutivo",
     cfg: {
       filas: ["cadena"],
-      valores: ["soVentana", "ventaMXN", "piezas", "cobertura", "capital"],
+      valores: ["outPzas", "outMXN", "inPzas", "inMXN", "piezas", "cobertura", "excedente", "capital"],
     },
   },
   {
@@ -51,7 +51,7 @@ const PLANTILLAS: Plantilla[] = [
     nombre: "Comparativo anual",
     cfg: {
       filas: ["cadena", "coleccion"],
-      valores: ["ventaMXN", "ventaAntMXN", "varMXN", "soVentana"],
+      valores: ["soVentana", "ventaMXN", "ventaAntMXN", "varMXN"],
     },
   },
   {
@@ -59,18 +59,18 @@ const PLANTILLAS: Plantilla[] = [
     nombre: "Reposición y quiebres",
     cfg: {
       filas: ["cadena", "sucursal"],
-      valores: ["piezas", "soSemana", "cobertura", "sugerido", "perdida"],
+      valores: ["piezas", "soSemana", "cobertura", "sugerido", "perdidaPzas", "perdida"],
     },
   },
   {
     id: "mix",
     nombre: "Mix por marca",
-    cfg: { filas: ["marca", "genero"], columna: "cadena", valores: ["ventaMXN"] },
+    cfg: { filas: ["marca", "genero"], columna: "cadena", valores: ["outPzas", "outMXN"] },
   },
 ];
 
 export default function Reportes() {
-  const { vista } = useBI();
+  const { vista, periodo } = useBI();
   const base = useBase();
   const [cfg, setCfg] = useState<Config>(PLANTILLAS[0].cfg);
   const [plantilla, setPlantilla] = useState("ejecutivo");
@@ -79,7 +79,7 @@ export default function Reportes() {
   const [panel, setPanel] = useState(true);
   const [busca, setBusca] = useState("");
 
-  const r = useMemo(() => pivotar(vista, cfg), [vista, cfg]);
+  const r = useMemo(() => pivotar(vista, cfg, periodo), [vista, cfg, periodo]);
   const medidas = cfg.valores.map(medidaPorId);
   const dimsFila = cfg.filas.slice(0, 3).map(dimensionPorId);
 
@@ -147,7 +147,7 @@ export default function Reportes() {
   const q = busca.trim().toLowerCase();
   const coincide = (t: string) => !q || t.toLowerCase().includes(q);
   const gruposDim = ["Tienda", "Producto"] as const;
-  const gruposMed = ["Venta", "Inventario", "Alerta", "Conteo"] as const;
+  const gruposMed = ["Periodo", "Venta", "Inventario", "Alerta", "Conteo"] as const;
 
   return (
     <div className={`reportes ${panel ? "" : "sinpanel"}`}>
@@ -173,7 +173,7 @@ export default function Reportes() {
           </div>
           <div className="rep-acc">
             <span className="note" style={{ margin: 0 }}>
-              {fmt(r.filas.length)} renglones · {CORTE.etiqueta}
+              {fmt(r.filas.length)} renglones · corte {CORTE.etiqueta} · periodo {etiquetaPeriodo(periodo)}
             </span>
             <button
               className={`btn ghost sm ${panel ? "on" : ""}`}
@@ -276,7 +276,7 @@ export default function Reportes() {
       </div>
       <Descarga
         titulo="Este reporte en Excel"
-        contenido="La tabla tal como está en pantalla, con sus indicadores y su gráfica. El simulador trae el corte completo con palancas de venta, precio y liquidación."
+        contenido="La tabla tal como está en pantalla, con sus indicadores y su gráfica. El simulador trae el corte completo con palancas sobre el sell-in: crecimiento, precio, umbral y liquidación."
         armar={() => libroReporte(base, r, cfg, plantilla)}
         extra={
           <>

@@ -14,49 +14,85 @@
     "Tablero",
     "D6"
    ],
-   "capital": [
+   "exc": [
     "Tablero",
     "F6"
    ],
-   "exc": [
+   "capital": [
     "Tablero",
     "H6"
    ],
-   "perdida": [
+   "perdidaPzas": [
     "Tablero",
     "J6"
    ],
-   "impacto": [
+   "perdida": [
     "Tablero",
     "L6"
    ],
+   "alertasAntes": [
+    "Tablero",
+    "B10"
+   ],
+   "alertasHoy": [
+    "Tablero",
+    "D10"
+   ],
+   "resueltas": [
+    "Tablero",
+    "F10"
+   ],
+   "nuevas": [
+    "Tablero",
+    "H10"
+   ],
+   "vigentes": [
+    "Tablero",
+    "J10"
+   ],
+   "impacto": [
+    "Tablero",
+    "L10"
+   ],
    "umbral": [
     "Tablero",
-    "E11"
+    "E15"
    ],
    "descuento": [
     "Tablero",
-    "E12"
+    "E16"
    ],
    "tasa": [
     "Tablero",
-    "E13"
+    "E17"
+   ],
+   "capitalAnt": [
+    "Tablero",
+    "L15"
+   ],
+   "capitalCambio": [
+    "Tablero",
+    "L16"
+   ],
+   "excAnt": [
+    "Tablero",
+    "L17"
+   ],
+   "perdidaAnt": [
+    "Tablero",
+    "L18"
    ],
    "liberado": [
     "Tablero",
-    "L11"
-   ],
-   "castigo": [
-    "Tablero",
-    "L12"
+    "L19"
    ],
    "ahorro": [
     "Tablero",
-    "L13"
+    "L20"
    ],
    "perdidaAnual": [
     "Tablero",
-    "L14"
+    "L21"
    ]
   },
   "hojas": {
@@ -66,6 +102,9 @@
    },
    "Sucursales": {
     "sobrantes": "conservar"
+   },
+   "Cambio de corte": {
+    "sobrantes": "quitar"
    },
    "Datos": {
     "sobrantes": "conservar"
@@ -79,27 +118,27 @@
     "Tablero",
     "B2"
    ],
-   "sellout8": [
+   "sellout": [
     "Tablero",
     "B6"
    ],
-   "venta": [
+   "selloutMonto": [
     "Tablero",
     "D6"
    ],
-   "variacion": [
+   "sellin": [
     "Tablero",
     "F6"
    ],
-   "cobertura": [
+   "sellinMonto": [
     "Tablero",
     "H6"
    ],
-   "capital": [
+   "indice": [
     "Tablero",
     "J6"
    ],
-   "perdida": [
+   "cobertura": [
     "Tablero",
     "L6"
    ],
@@ -107,45 +146,69 @@
     "Tablero",
     "B10"
    ],
-   "quiebres": [
+   "inventarioMonto": [
     "Tablero",
     "D10"
    ],
-   "sobre": [
+   "exc": [
     "Tablero",
     "F10"
    ],
-   "sellin": [
+   "capital": [
     "Tablero",
     "H10"
    ],
-   "indice": [
+   "perdidaPzas": [
     "Tablero",
     "J10"
    ],
-   "margen": [
+   "perdida": [
     "Tablero",
     "L10"
    ],
+   "quiebres": [
+    "Tablero",
+    "B14"
+   ],
+   "sobre": [
+    "Tablero",
+    "D14"
+   ],
+   "resurtir": [
+    "Tablero",
+    "F14"
+   ],
+   "resurtirMonto": [
+    "Tablero",
+    "H14"
+   ],
+   "transito": [
+    "Tablero",
+    "J14"
+   ],
+   "variacion": [
+    "Tablero",
+    "L14"
+   ],
    "umbral": [
     "Tablero",
-    "E15"
+    "E19"
    ],
    "tasa": [
     "Tablero",
-    "E16"
+    "E20"
    ],
    "financiero": [
     "Tablero",
-    "L15"
+    "L19"
    ],
    "perdidaAnual": [
     "Tablero",
-    "L16"
+    "L20"
    ],
    "inaccion": [
     "Tablero",
-    "L17"
+    "L21"
    ]
   },
   "hojas": {
@@ -153,7 +216,11 @@
     "sobrantes": "conservar",
     "recorte": 8
    },
-   "Modelos": {
+   "Top sell-out": {
+    "sobrantes": "conservar",
+    "recorte": 10
+   },
+   "Top sell-in": {
     "sobrantes": "conservar",
     "recorte": 10
    },
@@ -180,80 +247,89 @@
     "Tablero",
     "B6"
    ],
-   "capital": [
+   "exc": [
     "Tablero",
     "D6"
    ],
-   "traslados": [
+   "capital": [
     "Tablero",
     "F6"
    ],
-   "perdida": [
+   "quiebres": [
     "Tablero",
     "H6"
    ],
-   "resurtir": [
+   "perdidaPzas": [
     "Tablero",
     "J6"
    ],
-   "inaccion": [
+   "perdida": [
     "Tablero",
     "L6"
    ],
-   "umbral": [
+   "resurtir": [
     "Tablero",
-    "E11"
+    "B10"
    ],
-   "flete": [
+   "resurtirMonto": [
     "Tablero",
-    "E12"
+    "D10"
    ],
-   "dias": [
+   "transito": [
     "Tablero",
-    "E13"
-   ],
-   "tasa": [
-    "Tablero",
-    "E14"
-   ],
-   "edad": [
-    "Tablero",
-    "E15"
-   ],
-   "descuento": [
-    "Tablero",
-    "E16"
-   ],
-   "fleteTotal": [
-    "Tablero",
-    "L11"
-   ],
-   "recupera": [
-    "Tablero",
-    "L12"
-   ],
-   "neto": [
-    "Tablero",
-    "L13"
+    "F10"
    ],
    "viejas": [
     "Tablero",
-    "L14"
+    "H10"
    ],
    "viejasCosto": [
     "Tablero",
+    "J10"
+   ],
+   "inaccion": [
+    "Tablero",
+    "L10"
+   ],
+   "umbral": [
+    "Tablero",
+    "E15"
+   ],
+   "dias": [
+    "Tablero",
+    "E16"
+   ],
+   "tasa": [
+    "Tablero",
+    "E17"
+   ],
+   "edad": [
+    "Tablero",
+    "E18"
+   ],
+   "descuento": [
+    "Tablero",
+    "E19"
+   ],
+   "transitoMonto": [
+    "Tablero",
     "L15"
+   ],
+   "financiero": [
+    "Tablero",
+    "L16"
+   ],
+   "perdidaAnual": [
+    "Tablero",
+    "L17"
    ],
    "viejasCaja": [
     "Tablero",
-    "L16"
+    "L18"
    ]
   },
   "hojas": {
-   "Traslados": {
-    "sobrantes": "conservar"
-   },
-   "No embarcar": {
+   "No resurtir": {
     "sobrantes": "quitar"
    },
    "Resurtir": {
@@ -286,45 +362,73 @@
     "Tablero",
     "D6"
    ],
-   "so": [
+   "invMonto": [
     "Tablero",
     "F6"
    ],
-   "capital": [
+   "so": [
     "Tablero",
     "H6"
    ],
-   "perdida": [
+   "exc": [
     "Tablero",
     "J6"
    ],
-   "impacto": [
+   "capital": [
     "Tablero",
     "L6"
    ],
-   "sanas": [
+   "sellout": [
     "Tablero",
     "B10"
    ],
-   "altas": [
+   "selloutMonto": [
     "Tablero",
     "D10"
    ],
-   "saturadas": [
+   "sellin": [
     "Tablero",
     "F10"
    ],
-   "quiebres": [
+   "sellinMonto": [
     "Tablero",
     "H10"
    ],
-   "sinReporte": [
+   "perdidaPzas": [
     "Tablero",
     "J10"
    ],
+   "perdida": [
+    "Tablero",
+    "L10"
+   ],
+   "sanas": [
+    "Tablero",
+    "B14"
+   ],
+   "altas": [
+    "Tablero",
+    "D14"
+   ],
+   "saturadas": [
+    "Tablero",
+    "F14"
+   ],
+   "quiebres": [
+    "Tablero",
+    "H14"
+   ],
+   "sinReporte": [
+    "Tablero",
+    "J14"
+   ],
+   "impacto": [
+    "Tablero",
+    "L14"
+   ],
    "umbral": [
     "Tablero",
-    "E15"
+    "E19"
    ]
   },
   "hojas": {
@@ -387,97 +491,117 @@
     "Tablero",
     "B2"
    ],
-   "venta": [
+   "sellin": [
     "Tablero",
     "B6"
    ],
-   "variacion": [
+   "sellinMonto": [
     "Tablero",
     "D6"
    ],
-   "margenPct": [
+   "sellout": [
     "Tablero",
     "F6"
    ],
-   "capital": [
+   "selloutMonto": [
     "Tablero",
     "H6"
    ],
-   "liberado": [
+   "indice": [
     "Tablero",
     "J6"
    ],
-   "ebitda": [
+   "exc": [
     "Tablero",
     "L6"
    ],
-   "crecimiento": [
+   "capital": [
     "Tablero",
-    "E11"
+    "B10"
    ],
-   "precio": [
+   "liqPzas": [
     "Tablero",
-    "E12"
+    "D10"
    ],
-   "umbral": [
+   "liberado": [
     "Tablero",
-    "E13"
-   ],
-   "liquidacion": [
-    "Tablero",
-    "E14"
-   ],
-   "descuento": [
-    "Tablero",
-    "E15"
-   ],
-   "tasa": [
-    "Tablero",
-    "E16"
-   ],
-   "gasto": [
-    "Tablero",
-    "E17"
-   ],
-   "ventaR": [
-    "Tablero",
-    "L11"
-   ],
-   "ventaAnt": [
-    "Tablero",
-    "L12"
-   ],
-   "costoVendido": [
-    "Tablero",
-    "L13"
-   ],
-   "margen": [
-    "Tablero",
-    "L14"
-   ],
-   "capitalR": [
-    "Tablero",
-    "L15"
-   ],
-   "liberadoR": [
-    "Tablero",
-    "L16"
+    "F10"
    ],
    "castigo": [
     "Tablero",
+    "H10"
+   ],
+   "perdidaPzas": [
+    "Tablero",
+    "J10"
+   ],
+   "perdida": [
+    "Tablero",
+    "L10"
+   ],
+   "crecimiento": [
+    "Tablero",
+    "E15"
+   ],
+   "precio": [
+    "Tablero",
+    "E16"
+   ],
+   "umbral": [
+    "Tablero",
+    "E17"
+   ],
+   "liquidacion": [
+    "Tablero",
+    "E18"
+   ],
+   "descuento": [
+    "Tablero",
+    "E19"
+   ],
+   "sellinBase": [
+    "Tablero",
+    "L15"
+   ],
+   "sellinBaseMonto": [
+    "Tablero",
+    "L16"
+   ],
+   "sellinR": [
+    "Tablero",
     "L17"
    ],
-   "ahorro": [
+   "sellinMontoR": [
     "Tablero",
     "L18"
    ],
-   "gastoOp": [
+   "difPzas": [
     "Tablero",
     "L19"
    ],
-   "ebitdaR": [
+   "difMonto": [
     "Tablero",
     "L20"
+   ],
+   "excR": [
+    "Tablero",
+    "L21"
+   ],
+   "capitalR": [
+    "Tablero",
+    "L22"
+   ],
+   "liqPzasR": [
+    "Tablero",
+    "L23"
+   ],
+   "liberadoR": [
+    "Tablero",
+    "L24"
+   ],
+   "castigoR": [
+    "Tablero",
+    "L25"
    ]
   },
   "hojas": {
@@ -505,101 +629,117 @@
     "Tablero",
     "B6"
    ],
-   "margen": [
+   "unidades": [
     "Tablero",
     "D6"
    ],
-   "margenPct": [
+   "margen": [
     "Tablero",
     "F6"
    ],
-   "ebitda": [
+   "margenPct": [
     "Tablero",
     "H6"
    ],
-   "ebitdaPct": [
+   "ebitda": [
     "Tablero",
     "J6"
    ],
-   "caja": [
+   "ebitdaPct": [
     "Tablero",
     "L6"
    ],
-   "crecimiento": [
+   "recuperadoPzas": [
     "Tablero",
-    "E11"
-   ],
-   "precio": [
-    "Tablero",
-    "E12"
-   ],
-   "costo": [
-    "Tablero",
-    "E13"
-   ],
-   "elasticidad": [
-    "Tablero",
-    "E14"
-   ],
-   "servicio": [
-    "Tablero",
-    "E15"
-   ],
-   "mercadotecnia": [
-    "Tablero",
-    "K11"
-   ],
-   "dias": [
-    "Tablero",
-    "K12"
-   ],
-   "liquidacion": [
-    "Tablero",
-    "K13"
-   ],
-   "gastoFijo": [
-    "Tablero",
-    "K14"
-   ],
-   "gastoVariable": [
-    "Tablero",
-    "K15"
-   ],
-   "perdidaSem": [
-    "Tablero",
-    "E18"
-   ],
-   "capitalParado": [
-    "Tablero",
-    "E19"
-   ],
-   "baseMkt": [
-    "Tablero",
-    "E20"
-   ],
-   "baseDias": [
-    "Tablero",
-    "E21"
-   ],
-   "factor": [
-    "Tablero",
-    "L18"
+    "B10"
    ],
    "recuperado": [
     "Tablero",
-    "L19"
+    "D10"
+   ],
+   "caja": [
+    "Tablero",
+    "F10"
+   ],
+   "crecimiento": [
+    "Tablero",
+    "E15"
+   ],
+   "precio": [
+    "Tablero",
+    "E16"
+   ],
+   "costo": [
+    "Tablero",
+    "E17"
+   ],
+   "elasticidad": [
+    "Tablero",
+    "E18"
+   ],
+   "servicio": [
+    "Tablero",
+    "E19"
+   ],
+   "mercadotecnia": [
+    "Tablero",
+    "K15"
+   ],
+   "dias": [
+    "Tablero",
+    "K16"
+   ],
+   "liquidacion": [
+    "Tablero",
+    "K17"
+   ],
+   "gastoFijo": [
+    "Tablero",
+    "K18"
+   ],
+   "gastoVariable": [
+    "Tablero",
+    "K19"
+   ],
+   "perdidaSem": [
+    "Tablero",
+    "E22"
+   ],
+   "perdidaPzasSem": [
+    "Tablero",
+    "E23"
+   ],
+   "capitalParado": [
+    "Tablero",
+    "E24"
+   ],
+   "baseMkt": [
+    "Tablero",
+    "E25"
+   ],
+   "baseDias": [
+    "Tablero",
+    "E26"
+   ],
+   "margenMarca": [
+    "Tablero",
+    "E27"
+   ],
+   "margenCadena": [
+    "Tablero",
+    "E28"
+   ],
+   "factor": [
+    "Tablero",
+    "L22"
    ],
    "costoInv": [
     "Tablero",
-    "L20"
+    "L23"
    ],
    "perdLiq": [
     "Tablero",
-    "L21"
-   ],
-   "unidades": [
-    "Tablero",
-    "L22"
+    "L24"
    ]
   },
   "hojas": {
@@ -623,6 +763,10 @@
     "recorte": 8
    },
    "Cadenas": {
+    "sobrantes": "conservar",
+    "recorte": 8
+   },
+   "Lo ya vendido": {
     "sobrantes": "conservar",
     "recorte": 8
    }
@@ -655,9 +799,21 @@
     "Tablero",
     "J6"
    ],
-   "combosSin": [
+   "montoSin": [
     "Tablero",
     "L6"
+   ],
+   "combosSin": [
+    "Tablero",
+    "B10"
+   ],
+   "piezasCon": [
+    "Tablero",
+    "D10"
+   ],
+   "montoCon": [
+    "Tablero",
+    "F10"
    ]
   },
   "hojas": {
@@ -700,6 +856,10 @@
    "valor": [
     "Tablero",
     "L6"
+   ],
+   "piezas": [
+    "Tablero",
+    "B10"
    ]
   },
   "hojas": {

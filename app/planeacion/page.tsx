@@ -6,6 +6,7 @@ import { useBI } from "@/lib/store";
 import { Descarga, useBase } from "@/components/descarga";
 import { libroEscenario } from "@/lib/libros";
 import { Tile } from "@/components/ui";
+import { ReferenciaSellOut } from "@/components/referencia";
 import { Treemap, Columnas } from "@/components/charts";
 import { fmt, money, moneyCorto, pct } from "@/lib/engine";
 import { proyectar, CAMPOS_SUPUESTO, MESES, ESCENARIOS_BASE } from "@/lib/plan";
@@ -46,7 +47,8 @@ export default function Planeacion() {
     const minM = Math.min(...p.lineas.map((x) => x.margenPct));
     return {
       nombre: l.nombre,
-      valor: l.totalMargen,
+      valor: l.totalIngreso,
+      pzas: Math.round(l.totalUnidades),
       intensidad: maxM > minM ? (l.margenPct - minM) / (maxM - minM) : 0.5,
       nota: `${fmt(Math.round(l.totalUnidades))} pzas · margen ${pct(l.margenPct)}`,
     };
@@ -91,9 +93,10 @@ export default function Planeacion() {
 
       <div className="tiles">
         <Tile
-          k="Ingreso proyectado"
+          k="Sell-in proyectado"
           v={moneyCorto(p.ingreso)}
-          n={`${fmt(Math.round(p.unidades))} piezas en doce meses`}
+          s={`${fmt(p.unidades)} pzas`}
+          n="Doce meses, a precio de venta a la cadena"
           delta={
             activo.id !== "base"
               ? { valor: moneyCorto(Math.abs(d.ingreso)), arriba: d.ingreso >= 0 }
@@ -101,9 +104,10 @@ export default function Planeacion() {
           }
         />
         <Tile
-          k="Margen bruto"
+          k="Margen sobre sell-in"
           v={moneyCorto(p.margenBruto)}
-          n={`${pct(p.margenPct)} sobre ingreso`}
+          s={pct(p.margenPct)}
+          n="Sell-in menos el costo del producto"
           delta={
             activo.id !== "base"
               ? { valor: moneyCorto(Math.abs(d.margen)), arriba: d.margen >= 0 }
@@ -113,13 +117,21 @@ export default function Planeacion() {
         <Tile
           k="EBITDA"
           v={moneyCorto(p.ebitda)}
+          s={pct(p.ebitdaPct)}
           tono={p.ebitda >= pBase.ebitda ? "ok" : "flag"}
-          n={`${pct(p.ebitdaPct)} sobre ingreso`}
+          n="Margen menos gastos, sobre el sell-in"
           delta={
             activo.id !== "base"
               ? { valor: moneyCorto(Math.abs(d.ebitda)), arriba: d.ebitda >= 0 }
               : undefined
           }
+        />
+        <Tile
+          k="Quiebres que se cierran"
+          v={moneyCorto(p.recuperado)}
+          s={`${fmt(p.recuperadoPzas)} pzas`}
+          tono="accent"
+          n={`Sell-in que se recupera con servicio al ${fmt(activo.supuestos.servicio, 0)}%`}
         />
         <Tile
           k="Caja liberada"
@@ -128,17 +140,14 @@ export default function Planeacion() {
           n="Menos días de inventario y liquidación"
         />
         <Tile
-          k="Venta recuperada"
-          v={moneyCorto(p.recuperado)}
-          tono="accent"
-          n={`Nivel de servicio al ${fmt(activo.supuestos.servicio, 0)}%`}
-        />
-        <Tile
           k="Inventario promedio"
           v={moneyCorto(p.inventarioPromedio)}
-          n={`${fmt(activo.supuestos.diasObjetivo, 0)} días objetivo`}
+          s={`${fmt(activo.supuestos.diasObjetivo, 0)} días`}
+          n="Inventario de la marca que sostiene ese sell-in"
         />
       </div>
+
+      <ReferenciaSellOut proyeccion={p.porCadena} />
 
       <div className="cols-2">
         {/* Hoja de supuestos */}
@@ -147,7 +156,8 @@ export default function Planeacion() {
             <div style={{ flex: "1 1 auto" }}>
               <h3>Supuestos</h3>
               <p className="sub">
-                Mueve cualquiera y observa cómo se propaga por el modelo completo, hasta EBITDA.
+                Todo el plan corre sobre sell-in. Mueve cualquiera y observa cómo se propaga por
+                el modelo completo, hasta EBITDA.
               </p>
             </div>
             {!activo.bloqueado ? (
@@ -229,10 +239,10 @@ export default function Planeacion() {
             </p>
             <div className="rows">
               {[
-                { k: "Unidades", v: fmt(Math.round(p.unidades)) + " pzas", b: fmt(Math.round(pBase.unidades)) + " pzas" },
-                { k: "Ingreso neto", v: moneyCorto(p.ingreso), b: moneyCorto(pBase.ingreso) },
-                { k: "Costo de ventas", v: moneyCorto(-p.costo), b: moneyCorto(-pBase.costo) },
-                { k: "Margen bruto", v: moneyCorto(p.margenBruto), b: moneyCorto(pBase.margenBruto) },
+                { k: "Piezas de sell-in", v: fmt(Math.round(p.unidades)) + " pzas", b: fmt(Math.round(pBase.unidades)) + " pzas" },
+                { k: "Ingreso por sell-in", v: moneyCorto(p.ingreso), b: moneyCorto(pBase.ingreso) },
+                { k: "Costo del producto", v: moneyCorto(-p.costo), b: moneyCorto(-pBase.costo) },
+                { k: "Margen sobre sell-in", v: moneyCorto(p.margenBruto), b: moneyCorto(pBase.margenBruto) },
                 { k: "Gasto operativo", v: moneyCorto(-p.gastoOperativo), b: moneyCorto(-pBase.gastoOperativo) },
                 { k: "Costo del inventario", v: moneyCorto(-p.costoInventario), b: moneyCorto(-pBase.costoInventario) },
                 { k: "EBITDA", v: moneyCorto(p.ebitda), b: moneyCorto(pBase.ebitda) },
@@ -274,10 +284,10 @@ export default function Planeacion() {
 
       <div className="cols-2">
         <div className="card">
-          <h3>Margen por colección</h3>
+          <h3>Sell-in por colección</h3>
           <p className="sub">
-            El tamaño es el margen absoluto; la intensidad, el porcentaje de margen. Las piezas
-            grandes y claras son las que mueven volumen con margen bajo.
+            El tamaño es el sell-in proyectado en pesos; la intensidad, el porcentaje de margen.
+            Cada recuadro dice también sus piezas.
           </p>
           <Treemap datos={baldosas} />
         </div>
@@ -291,9 +301,9 @@ export default function Planeacion() {
                 <tr>
                   <th>Colección</th>
                   <th>Segmento</th>
-                  <th className="n">Unidades</th>
-                  <th className="n">Ingreso</th>
-                  <th className="n">Margen</th>
+                  <th className="n">Sell-in (pzas)</th>
+                  <th className="n">Sell-in $</th>
+                  <th className="n">Margen $</th>
                   <th className="n">Margen %</th>
                 </tr>
               </thead>
@@ -317,9 +327,10 @@ export default function Planeacion() {
       </div>
 
       <div className="card">
-        <h3>Ingreso mes a mes</h3>
+        <h3>Sell-in mes a mes</h3>
         <p className="sub">
-          Escenario {activo.nombre} contra Base. Diciembre concentra el doble de un mes promedio.
+          Piezas y pesos de sell-in del escenario {activo.nombre}. Diciembre concentra el doble de
+          un mes promedio.
         </p>
         <div className="tablewrap" style={{ maxHeight: "none" }}>
           <table>
@@ -337,7 +348,20 @@ export default function Planeacion() {
             <tbody>
               <tr>
                 <td className="name">
-                  <strong>Ingreso</strong>
+                  <strong>Sell-in (pzas)</strong>
+                </td>
+                {p.unidadesMes.map((v, i) => (
+                  <td key={i} className="n">
+                    {fmt(v)}
+                  </td>
+                ))}
+                <td className="n">
+                  <strong>{fmt(p.unidades)}</strong>
+                </td>
+              </tr>
+              <tr>
+                <td className="name">
+                  <strong>Sell-in $</strong>
                 </td>
                 {p.ingresoMes.map((v, i) => (
                   <td key={i} className="n">
@@ -349,7 +373,7 @@ export default function Planeacion() {
                 </td>
               </tr>
               <tr>
-                <td className="name">Margen bruto</td>
+                <td className="name">Margen sobre sell-in</td>
                 {p.margenMes.map((v, i) => (
                   <td key={i} className="n">
                     {moneyCorto(v)}
@@ -375,13 +399,14 @@ export default function Planeacion() {
         </div>
         <p className="note">
           Cifras de demostración. Las fórmulas de propagación están declaradas en el código y son
-          discutibles renglón por renglón: unidades = base × crecimiento × efecto precio × servicio ×
-          mercadotecnia.
+          discutibles renglón por renglón: piezas de sell-in = sell-in actual × crecimiento × efecto
+          precio × servicio × mercadotecnia. El margen de la marca sobre su precio de venta a la
+          cadena es un supuesto de la demostración.
         </p>
       </div>
       <Descarga
         titulo="El escenario en Excel"
-        contenido="El modelo del plan completo en fórmulas: los diez supuestos son celdas vivas y recalculan unidades por mes, P&L por trimestre y EBITDA."
+        contenido="El modelo del plan sobre sell-in, en fórmulas: los diez supuestos son celdas vivas y recalculan piezas por mes, P&L por trimestre y EBITDA."
         armar={() => libroEscenario(alcanceLibro, activo, escenarios)}
       />
     </div>

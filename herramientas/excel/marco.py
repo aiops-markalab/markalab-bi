@@ -83,6 +83,11 @@ COLUMNAS_DATOS = [
     ("Venta perdida sem", 15), ("Sugerido", 10), ("Impacto $", 13),
     ("Días en canal", 11), ("Sell-out última sem", 15), ("Sell-out 4 sem", 13),
     ("Reporta", 9),
+    # Lo que se suma dentro del periodo elegido en la plataforma.
+    ("Sell-out periodo", 14), ("Sell-out periodo $", 15),
+    ("Sell-in periodo", 13), ("Sell-in periodo $", 15),
+    # El corte anterior, para comparar contra el actual con las mismas reglas.
+    ("Piezas corte ant", 13), ("Sell-out sem corte ant", 15),
 ]
 D = {n: get_column_letter(i + 1) for i, (n, _) in enumerate(COLUMNAS_DATOS)}
 
@@ -93,27 +98,47 @@ def R(col: str) -> str:
 
 
 # --- Los pedazos de fórmula que se repiten. La regla vive en UN lugar. ------
+# Cada uno sirve para el corte actual y, con ant=True, para el anterior: son
+# las mismas reglas sobre las dos columnas de existencia y desplazamiento.
 
-def f_exc(u: str) -> str:
+def _pz(ant: bool) -> str:
+    return R("Piezas corte ant" if ant else "Piezas")
+
+
+def _so(ant: bool) -> str:
+    return R("Sell-out sem corte ant" if ant else "Sell-out semanal")
+
+
+def f_exc(u: str, ant: bool = False) -> str:
     """Piezas sobre el umbral, por renglón, solo donde hay sell-out reportado."""
-    base = f"ROUND({R('Piezas')}-{R('Sell-out semanal')}*{u},0)"
+    base = f"ROUND({_pz(ant)}-{_so(ant)}*{u},0)"
     return f"({base}*({base}>0)*({R('Reporta')}=1))"
 
 
-def f_perdida() -> str:
-    """Venta perdida semanal: existencia en cero con desplazamiento vivo."""
-    return (f"(({R('Reporta')}=1)*({R('Piezas')}=0)*({R('Sell-out semanal')}>0.15)"
-            f"*{R('Sell-out semanal')}*{R('Precio')})")
+def f_perdida(ant: bool = False) -> str:
+    """Venta perdida semanal en pesos: existencia en cero con desplazamiento vivo."""
+    return f"({f_perdida_pzas(ant)}*{R('Precio')})"
 
 
-def f_quiebre() -> str:
-    return (f"(({R('Reporta')}=1)*({R('Sell-out semanal')}>0.15)"
-            f"*({R('Piezas')}<2.5*{R('Sell-out semanal')}))")
+def f_perdida_pzas(ant: bool = False) -> str:
+    """La misma venta perdida, en piezas por semana."""
+    return (f"(({R('Reporta')}=1)*({_pz(ant)}=0)*({_so(ant)}>0.15)"
+            f"*{_so(ant)})")
 
 
-def f_sobre(u: str) -> str:
-    return (f"(({R('Reporta')}=1)*({R('Piezas')}>0)"
-            f"*({R('Piezas')}>{u}*{R('Sell-out semanal')}))")
+def f_quiebre(ant: bool = False) -> str:
+    return (f"(({R('Reporta')}=1)*({_so(ant)}>0.15)"
+            f"*({_pz(ant)}<2.5*{_so(ant)}))")
+
+
+def f_sobre(u: str, ant: bool = False) -> str:
+    return (f"(({R('Reporta')}=1)*({_pz(ant)}>0)"
+            f"*({_pz(ant)}>{u}*{_so(ant)}))")
+
+
+def f_alerta(u: str, ant: bool = False) -> str:
+    """En alerta: en quiebre o sobre el umbral. Nunca las dos a la vez."""
+    return f"({f_quiebre(ant)}+{f_sobre(u, ant)})"
 
 
 # ---------------------------------------------------------------------------

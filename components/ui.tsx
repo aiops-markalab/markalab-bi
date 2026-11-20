@@ -42,6 +42,7 @@ export function Tile({
   k,
   v,
   u,
+  s,
   n,
   tono,
   delta,
@@ -49,6 +50,8 @@ export function Tile({
   k: string;
   v: string;
   u?: string;
+  /** La otra mitad del dato: el monto cuando el valor son piezas, o al revés. */
+  s?: string;
   n?: ReactNode;
   tono?: "flag" | "ok" | "accent";
   delta?: { valor: string; arriba: boolean };
@@ -60,6 +63,7 @@ export function Tile({
         {v}
         {u ? <small>{u}</small> : null}
       </div>
+      {s ? <div className="s">{s}</div> : null}
       {n ? (
         <div className="n">
           {delta ? (

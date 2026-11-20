@@ -17,12 +17,18 @@ export default function Salud() {
         const sucs = data.sucursales.filter((s) => s.cadenaId === cd.id);
         const rep = sucs.filter((s) => s.reporta);
         const p = sucs.length ? (rep.length / sucs.length) * 100 : 0;
+        // Lo que hay en las tiendas que no reportan: se ve la existencia, no la venta.
+        const ciegas = data.combos.filter(
+          (c) => c.sucursal.cadenaId === cd.id && !c.sucursal.reporta
+        );
         return {
           cadena: cd,
           total: sucs.length,
           reportan: rep.length,
           pct: p,
           faltan: sucs.filter((s) => !s.reporta),
+          ciegasPzas: ciegas.reduce((a, c) => a + c.inv, 0),
+          ciegasMonto: ciegas.reduce((a, c) => a + c.inv * c.costo, 0),
         };
       })
       .sort((a, b) => a.pct - b.pct);
@@ -30,6 +36,8 @@ export default function Salud() {
 
   const nuevas = data.sucursales.filter((s) => s.apertura > 0);
   const sinDato = data.sucursales.filter((s) => !s.reporta);
+  const ciegasPzas = porCadena.reduce((a, r) => a + r.ciegasPzas, 0);
+  const ciegasMonto = porCadena.reduce((a, r) => a + r.ciegasMonto, 0);
 
   const reglas = [
     {
@@ -45,7 +53,7 @@ export default function Salud() {
     {
       n: "Cobertura de reporte",
       ok: ind.coberturaReporte >= 97,
-      d: `${pct(ind.coberturaReporte)} contra 97% mínimo acordado`,
+      d: `${pct(ind.coberturaReporte)} contra 97% mínimo acordado: ${ind.reportan} de ${ind.sucursales} puntos de venta`,
     },
     {
       n: "Semanas continuas de historia",
@@ -80,13 +88,15 @@ export default function Salud() {
         <Tile
           k="Sucursales sin dato"
           v={fmt(sinDato.length)}
+          s={`${fmt(ciegasPzas)} pzas · ${moneyCorto(ciegasMonto)}`}
           tono={sinDato.length ? "flag" : "ok"}
-          n="No entregaron sell-out este corte"
+          n="No entregaron sell-out. Esa existencia está sin lectura de venta"
         />
         <Tile
           k="Desplazamiento visible"
           v={fmt(ind.desplazamiento, 0)}
           u="pzas/sem"
+          s={`${moneyCorto(ind.dias ? (ind.sellOutMonto / ind.dias) * 7 : 0)} por semana`}
           n="Solo de las que sí reportan"
         />
         <Tile
@@ -121,6 +131,8 @@ export default function Salud() {
                   <th className="n">Reportan</th>
                   <th className="n">Sin dato</th>
                   <th className="n">Cobertura</th>
+                  <th className="n">Exist. sin lectura (pzas)</th>
+                  <th className="n">Exist. sin lectura $</th>
                   <th>Estado</th>
                 </tr>
               </thead>
@@ -137,6 +149,8 @@ export default function Salud() {
                     <td className="n">{fmt(r.reportan)}</td>
                     <td className="n">{fmt(r.total - r.reportan)}</td>
                     <td className="n">{pct(r.pct, 0)}</td>
+                    <td className="n">{r.ciegasPzas ? fmt(r.ciegasPzas) : "—"}</td>
+                    <td className="n">{r.ciegasMonto ? moneyCorto(r.ciegasMonto) : "—"}</td>
                     <td>
                       <Chip
                         clase={r.pct >= 97 ? "sano" : r.pct >= 85 ? "alto" : "saturado"}
@@ -207,12 +221,22 @@ export default function Salud() {
                 [
                   "Capital inmovilizado",
                   "Piezas sobre umbral × costo unitario",
-                  "Costo, no precio de lista: es lo que la empresa tiene invertido",
+                  "Al precio al que la marca le vende a la cadena, no a precio de lista",
                 ],
                 [
                   "Venta perdida semanal",
                   "Desplazamiento × precio de lista",
                   "Solo en combinaciones con existencia en cero y desplazamiento probado. Es un techo",
+                ],
+                [
+                  "Sell-out del periodo",
+                  "Piezas que las cadenas vendieron al público, del día al día elegido",
+                  "En pesos va a precio de lista. Es lo que ya se vendió, nada más",
+                ],
+                [
+                  "Sell-in del periodo",
+                  "Piezas que la marca le resurtió a las cadenas, del día al día elegido",
+                  "En pesos va al precio de venta a la cadena. Sobre esto corren los escenarios",
                 ],
                 [
                   "Resurtido sugerido",

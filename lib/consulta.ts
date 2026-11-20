@@ -25,7 +25,11 @@
  * pregunta como evidencia: el modelo redacta, las cifras salen de aquí.
  */
 
-import { CORTE, PARAMS, fmt, moneyCorto, type Combo, type Dataset } from "./engine";
+import {
+  CORTE, DIAS_HISTORIA, PARAMS, PRIMER_DIA, ULTIMO_DIA, cambioDeCorte, diaDeFecha, diasDe, enPeriodo,
+  etiquetaPeriodo, fechaCorta, fmt, fracciones, moneyCorto,
+  type Combo, type Dataset, type Fracciones, type Periodo as PeriodoDias,
+} from "./engine";
 import { CADENAS, COLECCIONES, ESTADOS, MARCAS, cadenaPorId, estadoPorId, marcaPorId } from "./catalog";
 import type { Hallazgo } from "./copiloto";
 
@@ -57,12 +61,14 @@ export type Hilo = { medida?: string; dim?: string; p: unknown; e: unknown };
 
 export type PlanActivo = {
   nombre: string;
+  /** Piezas de sell-in proyectadas a doce meses. */
+  unidades: number;
   ingreso: number;
   margenBruto: number;
   margenPct: number;
   ebitda: number;
   ebitdaPct: number;
-  otros: { nombre: string; ebitda: number; ebitdaPct: number; ingreso: number }[];
+  otros: { nombre: string; ebitda: number; ebitdaPct: number; ingreso: number; unidades: number }[];
 };
 
 export type Entorno = {
@@ -76,6 +82,8 @@ export type Entorno = {
   /** Cómo se llama el alcance de los filtros: "todo el canal", "Liverpool · Jalisco". */
   alcance: string;
   plan?: PlanActivo;
+  /** El periodo puesto en el calendario. Es el de omisión cuando la pregunta no pide otro. */
+  periodo?: PeriodoDias;
 };
 
 /* ------------------------------------------------------------------ *
@@ -105,25 +113,21 @@ type Medida =
   | "excedente"
   | "quiebre"
   | "perdida"
-  | "margen"
   | "variacion"
   | "resurtido"
   | "transito"
   | "precio"
   | "red"
   | "impacto"
-  | "traslado"
   | "plan";
 
 /* El orden importa: la primera que coincide gana. "Venta perdida" tiene que
    revisarse antes que "venta", y "sell-out" antes que "venta" también. */
 const MEDIDAS: { id: Medida; palabras: string[] }[] = [
   { id: "perdida", palabras: ["venta perdida", "perdiendo", "pierdo", "perdemos", "perdida", "dejando de vender", "dejo de vender", "dejamos de vender"] },
-  { id: "sellin", palabras: ["sell in", "sellin", "embarque", "embarcado", "embarcamos", "embarco", "se surtio", "surtimos"] },
+  { id: "sellin", palabras: ["sell in", "sellin", "se resurtio", "resurtimos", "resurtieron", "lo resurtido", "resurtido a", "resurtido por", "entro al canal", "embarque", "embarcado", "embarcamos", "embarco", "se surtio", "surtimos"] },
   { id: "sellout", palabras: ["sell out", "sellout", "desplazamiento", "desplazo", "se vendio", "vendimos", "vendieron", "vendio", "piezas vendidas", "unidades vendidas", "cuanto se vende", "cuanto vende", "vende mas", "vende menos", "venden mas", "venden menos"] },
-  { id: "traslado", palabras: ["traslad", "mover piezas", "que muevo", "mover de"] },
-  { id: "plan", palabras: ["ebitda", "escenario", "plan 2027", "el plan", "del plan", "proyeccion", "presupuesto", "estado de resultados"] },
-  { id: "margen", palabras: ["margen", "utilidad bruta", "rentab"] },
+  { id: "plan", palabras: ["ebitda", "escenario", "plan 2027", "el plan", "del plan", "proyeccion", "presupuesto", "estado de resultados", "margen", "utilidad bruta", "rentab"] },
   { id: "capital", palabras: ["capital", "inmovilizado", "dinero parado", "dinero detenido", "dinero tengo detenido", "dinero atorado"] },
   { id: "excedente", palabras: ["excedente", "exceso", "sobreinventario", "sobrante", "piezas de mas", "saturad", "saturacion", "sobre el umbral", "encima del umbral"] },
   { id: "quiebre", palabras: ["quiebre", "agot", "se acab", "acabando", "sin existencia", "desabasto", "faltante", "en cero"] },
@@ -340,21 +344,70 @@ type Periodo = {
   pedido: boolean;
   /** Proyección a doce meses en vez de historia. */
   anual: boolean;
+  /** Un periodo por fechas, del calendario o de la pregunta. Si existe, manda sobre n y salto. */
+  dias?: PeriodoDias;
+  /** Qué parte de cada semana cae en ese periodo. */
+  f?: Fracciones;
+  /** La pregunta pidió fechas de las que no hay historia. */
+  fuera?: boolean;
 };
+
+const MES_NUM: Record<string, number> = {
+  enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8,
+  septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
+  ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6, jul: 7, ago: 8, sep: 9, oct: 10, nov: 11, dic: 12,
+};
+const MES_RE = Object.keys(MES_NUM).sort((a, b) => b.length - a.length).join("|");
+
+/** Un periodo por fechas, listo para sumar. */
+function porDias(desde: number, hasta: number, pedido: boolean): Periodo {
+  const lim = (v: number) => Math.max(0, Math.min(DIAS_HISTORIA - 1, v));
+  const fuera = Math.max(desde, hasta) < 0 || Math.min(desde, hasta) > DIAS_HISTORIA - 1;
+  const dias: PeriodoDias = { desde: lim(Math.min(desde, hasta)), hasta: lim(Math.max(desde, hasta)) };
+  return { n: diasDe(dias) / 7, salto: 0, pedido, anual: false, dias, f: fracciones(dias), fuera };
+}
+
+/** "12 de octubre" -> el día dentro de la historia. El año es el del corte. */
+function diaDe(dia: string, mes: string): number {
+  const anio = Number(ULTIMO_DIA.slice(0, 4));
+  return diaDeFecha(`${anio}-${String(MES_NUM[mes]).padStart(2, "0")}-${String(Number(dia)).padStart(2, "0")}`);
+}
+
+/** Las fechas que la pregunta trae escritas, si trae alguna. */
+function fechasDe(q: string): Periodo | null {
+  // "del 5 de octubre al 15 de noviembre", "del 5 al 20 de octubre", "desde el 3 de nov hasta el 9 de nov"
+  const r = q.match(new RegExp(`(?:del?|desde(?: el)?)\\s+(\\d{1,2})(?:\\s+de\\s+(${MES_RE}))?\\s+(?:al?|hasta(?: el)?)\\s+(\\d{1,2})\\s+de\\s+(${MES_RE})`));
+  if (r) return porDias(diaDe(r[1], r[2] ?? r[4]), diaDe(r[3], r[4]), true);
+  // "el 12 de octubre", "del día 12 de octubre"
+  const u = q.match(new RegExp(`(?:^|\\s)(\\d{1,2})\\s+de\\s+(${MES_RE})(?:\\s|$)`));
+  if (u) return porDias(diaDe(u[1], u[2]), diaDe(u[1], u[2]), true);
+  if (tiene(q, ["ayer", "ultimo dia", "hoy", "al dia de hoy"])) return porDias(DIAS_HISTORIA - 1, DIAS_HISTORIA - 1, true);
+  // "de octubre", "en septiembre": el mes completo, hasta donde haya historia.
+  // Solo con el nombre entero: "mar" y "may" a secas son otras palabras.
+  const m = q.match(/(?:^|\s)(?:de|en|durante|del mes de)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?:\s|$)/);
+  if (m) {
+    const anio = Number(ULTIMO_DIA.slice(0, 4));
+    const ultimo = new Date(Date.UTC(anio, MES_NUM[m[1]], 0)).getUTCDate();
+    return porDias(diaDe("1", m[1]), diaDe(String(ultimo), m[1]), true);
+  }
+  return null;
+}
 
 const NUMEROS: Record<string, number> = {
   una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12,
 };
 
-function periodo(q: string): Periodo {
+function periodo(q: string, pantalla?: PeriodoDias): Periodo {
   const H = PARAMS.historia;
+  const fechas = fechasDe(q);
+  if (fechas) return fechas;
   if (tiene(q, ["semana pasada", "semana anterior"])) return { n: 1, salto: 1, pedido: true, anual: false };
   const m = q.match(/(?:ultimas?|pasadas?)?\s*(\d{1,2}|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce) semanas/);
   if (m) {
     const n = Math.max(1, Math.min(H, Number(m[1]) || NUMEROS[m[1]] || 8));
     return { n, salto: 0, pedido: true, anual: false };
   }
-  if (tiene(q, ["esta semana", "la semana", "semana actual", "ultima semana", "de la semana", "en la semana", "semanal", "hoy", "ayer", "al dia"]))
+  if (tiene(q, ["esta semana", "la semana", "semana actual", "ultima semana", "de la semana", "en la semana", "semanal"]))
     return { n: 1, salto: 0, pedido: true, anual: false };
   if (tiene(q, ["mes pasado", "mes anterior"])) return { n: 4, salto: 4, pedido: true, anual: false };
   if (tiene(q, ["este mes", "del mes", "el mes", "mes actual", "ultimo mes", "mensual", "en el mes"]))
@@ -363,11 +416,19 @@ function periodo(q: string): Periodo {
   if (tiene(q, ["trimestre", "tres meses"])) return { n: 12, salto: 0, pedido: true, anual: false };
   if (!tiene(q, ["ano pasado", "ano anterior"]) && tiene(q, ["al ano", "anual", "este ano", "del ano", "doce meses", "12 meses"]))
     return { n: 8, salto: 0, pedido: true, anual: true };
+  // Sin periodo en la pregunta manda el del calendario, para que Argos diga
+  // la misma cifra que la pantalla que se está viendo.
+  if (pantalla) return porDias(pantalla.desde, pantalla.hasta, false);
   return { n: PARAMS.ventana, salto: 0, pedido: false, anual: false };
 }
 
 /** "la semana S46", "las últimas 4 semanas (S43 a S46)". */
 function nombrePeriodo(p: Periodo): string {
+  if (p.dias) {
+    return diasDe(p.dias) === 1
+      ? `el día ${etiquetaPeriodo(p.dias).split(" · ")[0]}`
+      : `el periodo ${etiquetaPeriodo(p.dias).replace(" · ", ", ")}`;
+  }
   const fin = CORTE.semana - p.salto;
   const ini = fin - p.n + 1;
   if (p.n === 1) return p.salto ? `la semana pasada (S${fin})` : `la semana del corte (S${fin})`;
@@ -375,8 +436,20 @@ function nombrePeriodo(p: Periodo): string {
   return `las últimas ${p.n} semanas (S${ini} a S${fin})`;
 }
 
+/** Piezas resurtidas a una combinación en el periodo: su sell-in. */
+function piezasIn(c: Combo, p: Periodo): number {
+  if (p.f) return enPeriodo(c, p.f).in;
+  const H = c.hin.length;
+  const fin = H - p.salto;
+  const ini = Math.max(0, fin - p.n);
+  let s = 0;
+  for (let i = ini; i < fin; i++) s += c.hin[i] ?? 0;
+  return s;
+}
+
 /** Piezas desplazadas por una combinación en el periodo. */
 function piezas(c: Combo, p: Periodo): number {
+  if (p.f) return enPeriodo(c, p.f).out;
   const H = c.hist.length;
   // Las ocho semanas de la ventana usan el mismo promedio que el resto de la
   // plataforma, para que la cifra de Argos sea la del tablero y no una prima.
@@ -397,6 +470,11 @@ type Cifras = {
   tiendas: number;
   pz: number;
   venta: number;
+  /** Sell-in del mismo periodo: piezas y monto a precio de venta a la cadena. */
+  pzIn: number;
+  montoIn: number;
+  /** Piezas por semana que no se venden por quiebre. */
+  perdidaPz: number;
   pzPrev: number | null;
   pzAnt: number;
   ventaAnt: number;
@@ -416,9 +494,9 @@ type Cifras = {
 };
 
 function cifras(S: Combo[], p: Periodo): Cifras {
-  let pz = 0, venta = 0, pzPrev = 0, pzAnt = 0, ventaAnt = 0, inv = 0, invCosto = 0, tr = 0;
+  let pz = 0, venta = 0, pzIn = 0, montoIn = 0, perdidaPz = 0, pzPrev = 0, pzAnt = 0, ventaAnt = 0, inv = 0, invCosto = 0, tr = 0;
   let soSem = 0, exc = 0, capital = 0, sobre = 0, quiebres = 0, perdida = 0, costo = 0, sug = 0, impacto = 0;
-  const hayPrev = p.salto + p.n * 2 <= PARAMS.historia && !(p.n === PARAMS.ventana);
+  const hayPrev = !p.dias && p.salto + p.n * 2 <= PARAMS.historia && !(p.n === PARAMS.ventana);
   const previo: Periodo = { ...p, salto: p.salto + p.n };
   const tiendas = new Set<string>();
 
@@ -426,6 +504,9 @@ function cifras(S: Combo[], p: Periodo): Cifras {
     const u = piezas(c, p);
     pz += u;
     venta += u * c.precio;
+    const e = piezasIn(c, p);
+    pzIn += e;
+    montoIn += e * c.costo;
     costo += u * c.costo;
     if (hayPrev) pzPrev += piezas(c, previo);
     pzAnt += c.soAnt * p.n;
@@ -440,6 +521,7 @@ function cifras(S: Combo[], p: Periodo): Cifras {
     if (c.clase === "quiebre") {
       quiebres++;
       perdida += c.perdida;
+      if (c.perdida > 0) perdidaPz += c.so;
     }
     sug += c.sug;
     impacto += c.impacto;
@@ -449,7 +531,7 @@ function cifras(S: Combo[], p: Periodo): Cifras {
   return {
     combos: S.length,
     tiendas: tiendas.size,
-    pz, venta, pzPrev: hayPrev ? pzPrev : null, pzAnt, ventaAnt,
+    pz, venta, pzIn, montoIn, perdidaPz, pzPrev: hayPrev ? pzPrev : null, pzAnt, ventaAnt,
     inv, invCosto, tr, soSem,
     // La misma cuenta que hace el tablero: piezas del grupo entre
     // desplazamiento del grupo. Si Argos diera 10.2 donde la pantalla dice
@@ -498,19 +580,16 @@ function valorDe(m: Medida, x: Cifras): { v: number; txt: string } {
   switch (m) {
     case "sellout": return { v: x.pz, txt: `${fmt(x.pz)} piezas (${moneyCorto(x.venta)})` };
     case "venta": return { v: x.venta, txt: `${moneyCorto(x.venta)} (${fmt(x.pz)} piezas)` };
-    case "inventario": return { v: x.inv, txt: `${fmt(x.inv)} piezas, ${fmt(x.cob, 1)} semanas de cobertura` };
+    case "inventario": return { v: x.inv, txt: `${fmt(x.inv)} piezas (${moneyCorto(x.invCosto)}), ${fmt(x.cob, 1)} semanas de cobertura` };
     case "cobertura": return { v: x.cob, txt: `${fmt(x.cob, 1)} semanas (${fmt(x.inv)} piezas)` };
     case "capital": return { v: x.capital, txt: `${moneyCorto(x.capital)} inmovilizados (${fmt(x.exc)} piezas de más)` };
     case "excedente": return { v: x.exc, txt: `${fmt(x.exc)} piezas sobre el umbral (${moneyCorto(x.capital)})` };
-    case "quiebre": return { v: x.quiebres, txt: `${fmt(x.quiebres)} quiebres, ${moneyCorto(x.perdida)} por semana` };
-    case "perdida": return { v: x.perdida, txt: `${moneyCorto(x.perdida)} por semana (${fmt(x.quiebres)} quiebres)` };
-    case "margen": {
-      const pct = x.venta > 0 ? ((x.venta - x.costo) / x.venta) * 100 : 0;
-      return { v: pct, txt: `${fmt(pct, 1)}% (${moneyCorto(x.venta - x.costo)})` };
-    }
+    case "sellin": return { v: x.pzIn, txt: `${fmt(x.pzIn)} piezas resurtidas (${moneyCorto(x.montoIn)}), contra ${fmt(x.pz)} vendidas` };
+    case "quiebre": return { v: x.quiebres, txt: `${fmt(x.quiebres)} quiebres, ${fmt(x.perdidaPz)} piezas y ${moneyCorto(x.perdida)} por semana` };
+    case "perdida": return { v: x.perdida, txt: `${moneyCorto(x.perdida)} y ${fmt(x.perdidaPz)} piezas por semana (${fmt(x.quiebres)} quiebres)` };
     case "variacion": {
       const v = variacion(x.venta, x.ventaAnt);
-      return { v, txt: `${signo(v)} (${moneyCorto(x.venta)} contra ${moneyCorto(x.ventaAnt)})` };
+      return { v, txt: `${signo(v)} (${fmt(x.pz)} piezas y ${moneyCorto(x.venta)}, contra ${fmt(x.pzAnt)} piezas y ${moneyCorto(x.ventaAnt)})` };
     }
     case "resurtido": return { v: x.sug, txt: `${fmt(x.sug)} piezas sugeridas` };
     case "transito": return { v: x.tr, txt: `${fmt(x.tr)} piezas en tránsito` };
@@ -518,15 +597,15 @@ function valorDe(m: Medida, x: Cifras): { v: number; txt: string } {
       const pm = x.pz > 0 ? x.venta / x.pz : 0;
       return { v: pm, txt: `$${fmt(pm)} por pieza` };
     }
-    default: return { v: x.impacto, txt: `${moneyCorto(x.impacto)} de impacto (${moneyCorto(x.capital)} parados, ${fmt(x.quiebres)} quiebres)` };
+    default: return { v: x.impacto, txt: `${moneyCorto(x.impacto)} de impacto (${fmt(x.exc)} piezas de más por ${moneyCorto(x.capital)}, ${fmt(x.quiebres)} quiebres)` };
   }
 }
 
 const NOMBRE_MEDIDA: Record<Medida, string> = {
   sellout: "sell-out", venta: "venta", sellin: "sell-in", inventario: "inventario", cobertura: "cobertura",
   capital: "capital inmovilizado", excedente: "excedente", quiebre: "quiebres", perdida: "venta perdida",
-  margen: "margen", variacion: "variación contra el año anterior", resurtido: "resurtido sugerido",
-  transito: "tránsito", precio: "precio promedio", red: "red", impacto: "impacto", traslado: "traslados", plan: "plan",
+  variacion: "variación contra el año anterior", resurtido: "resurtido sugerido",
+  transito: "tránsito", precio: "precio promedio", red: "red", impacto: "impacto", plan: "plan",
 };
 
 function desglose(S: Combo[], m: Medida, d: Dimension, p: Periodo, q: string, donde: string): string {
@@ -548,7 +627,7 @@ function desglose(S: Combo[], m: Medida, d: Dimension, p: Periodo, q: string, do
   const lista = util.length <= 6 ? util : util.slice(0, Math.max(1, Math.min(n, 15)));
   if (!lista.length) return `No hay datos de ${NOMBRE_MEDIDA[m]} por ${dim.nombre} ${donde}.`;
 
-  const conPeriodo = m === "sellout" || m === "venta" || m === "margen" || m === "variacion" || m === "precio";
+  const conPeriodo = m === "sellout" || m === "venta" || m === "sellin" || m === "variacion" || m === "precio";
   const cab =
     `${menos ? "De menor a mayor" : "De mayor a menor"}, ${NOMBRE_MEDIDA[m]} por ${dim.nombre} ${donde}` +
     (conPeriodo ? `, en ${nombrePeriodo(p)}` : "") + ":";
@@ -564,9 +643,8 @@ function desglose(S: Combo[], m: Medida, d: Dimension, p: Periodo, q: string, do
 function concepto(q: string, x: Entorno, cobCanal: number): string | null {
   const explica = tiene(q, ["por que", "que es", "que significa", "como se calcula", "como calculas", "como funciona", "explicame", "explica", "a que te refieres", "que quiere decir", "definicion"]);
 
-  if (tiene(q, ["otra cadena", "entre cadenas", "de liverpool a", "de sears a", "de sanborns a", "del palacio a", "a la otra cadena"]) ||
-      (tiene(q, ["traslad", "mover"]) && tiene(q, ["cadena"]) && explica)) {
-    return "Un traslado solo existe entre tiendas de la misma cadena y con el mismo modelo. El inventario que ya está en Liverpool es de Liverpool: se lo facturaste y está en su almacén, así que no puedes moverlo a Sears. Entre cadenas distintas lo que hay es una renegociación de embarque: dejar de surtir donde sobra y surtir donde falta. Y tampoco se sustituye un modelo por otro de la misma colección; quien pidió un CTZ-TS1525 no se lleva otro.";
+  if (tiene(q, ["traslad", "mover piezas", "mover mercancia", "mover de", "que muevo", "otra cadena", "entre cadenas", "entre tiendas", "a la otra cadena"])) {
+    return "Mover mercancía entre tiendas lo decide cada cadena con su propio inventario: lo que ya se le resurtió es suyo. La marca no lo controla y este tablero no lo propone. Lo que sí está en manos de la marca es a dónde resurte: te puedo decir en qué tiendas y modelos no conviene resurtir porque ya rebasan el umbral, y en cuáles sí porque están en quiebre.";
   }
   if (tiene(q, ["cobertura"]) && tiene(q, ["promedio", "total", "renglones"]) && explica) {
     return `La cobertura se calcula como piezas en existencia entre desplazamiento semanal, y siempre sobre el grupo completo: se suman las piezas, se suma el desplazamiento y se divide. No se promedian las coberturas de los renglones, porque un promedio de promedios pesa igual a una tienda con 5 piezas que a una con 500 y esconde justo las que hay que atender. Hoy la cobertura del canal es de ${fmt(cobCanal, 1)} semanas contra un umbral de ${fmt(x.umbral)}.`;
@@ -576,9 +654,9 @@ function concepto(q: string, x: Entorno, cobCanal: number): string | null {
   if (tiene(q, ["cobertura"]))
     return `La cobertura son las semanas que dura el inventario al ritmo de venta actual: piezas en existencia entre el desplazamiento semanal promedio de las últimas ${PARAMS.ventana} semanas. Por encima de ${fmt(x.umbral)} semanas se considera cobertura alta, por encima de ${fmt(x.umbral * PARAMS.factorCritico, 1)} saturado, y por debajo de ${fmt(PARAMS.coberturaMinima, 1)} con venta viva es riesgo de quiebre.`;
   if (tiene(q, ["sell out", "sellout", "sell in", "sellin", "desplazamiento"]))
-    return "Sell-in es lo que la marca le embarca a la cadena; sell-out es lo que la cadena le vende al consumidor. La diferencia entre los dos es inventario que se queda en el canal. Cuando se embarca sostenidamente más de lo que se desplaza, el anaquel se satura aunque la venta a la cadena se vea bien: ese es el problema que este tablero existe para mostrar.";
+    return "Sell-in es lo que la marca le resurte a la cadena; sell-out es lo que la cadena le vende al consumidor. La diferencia entre los dos es inventario que se queda en el canal. Cuando se resurte sostenidamente más de lo que se desplaza, el anaquel se satura aunque la venta a la cadena se vea bien: ese es el problema que este tablero existe para mostrar.";
   if (tiene(q, ["capital", "inmovilizado"]))
-    return `El capital inmovilizado es el valor a costo de las piezas que están por encima del umbral de cobertura: existencia menos ${fmt(x.umbral)} semanas de desplazamiento, por el costo del modelo. Es dinero que ya está pagado y parado en un anaquel donde no rota.`;
+    return `El capital inmovilizado es el valor de las piezas que están por encima del umbral de cobertura: existencia menos ${fmt(x.umbral)} semanas de desplazamiento, por el precio al que la marca le vende ese modelo a la cadena. Es dinero que ya está pagado y parado en un anaquel donde no rota.`;
   if (tiene(q, ["venta perdida", "perdida"]))
     return "La venta perdida es lo que se deja de vender por no tener producto: aplica a las combinaciones con existencia en cero y desplazamiento vivo, y vale el desplazamiento semanal por el precio de lista. Es una estimación a precio lleno; como techo es correcta, como cifra cerrada no.";
   if (tiene(q, ["quiebre"]))
@@ -600,7 +678,7 @@ function concepto(q: string, x: Entorno, cobCanal: number): string | null {
 
 const VOCABULARIO = [
   "corte", "hallazgo", "inventario", "existencia", "pieza", "stock", "sell", "desplazamiento", "venta", "vend",
-  "cobertura", "saturad", "exceso", "excedente", "quiebre", "agot", "faltante", "traslad", "embarque",
+  "cobertura", "saturad", "exceso", "excedente", "quiebre", "agot", "faltante", "traslad", "embarque", "mover",
   "resurt", "capital", "inmovilizado", "perd", "tienda", "sucursal", "plaza", "cadena", "marca", "coleccion", "modelo",
   "sku", "referencia", "reloj", "precio", "costo", "margen", "ebitda", "escenario", "plan", "supuesto", "proyeccion",
   "dato", "reporta", "brecha", "prioridad", "urgente", "riesgo", "canal", "tablero", "filtro", "umbral", "comprador",
@@ -608,7 +686,7 @@ const VOCABULARIO = [
 ];
 
 const CAPACIDADES =
-  "sell-out, venta, sell-in, inventario, cobertura, capital inmovilizado, quiebres, venta perdida, margen y resurtido; por cadena, colección, marca, estado, tienda o modelo; de la semana, del mes o de las últimas 8 y 12 semanas";
+  "sell-out, sell-in, venta, inventario, cobertura, capital inmovilizado, quiebres, venta perdida y resurtido, en piezas y en monto; por cadena, colección, marca, estado, tienda o modelo; de la semana, del mes, de las últimas 8 y 12 semanas, o de las fechas que digas";
 
 export function responder(pregunta: string, x: Entorno, hilo?: Hilo): Respuesta {
   const r = resolver(pregunta, x, hilo);
@@ -616,7 +694,13 @@ export function responder(pregunta: string, x: Entorno, hilo?: Hilo): Respuesta 
 }
 
 function resolver(pregunta: string, x: Entorno, hilo?: Hilo): Respuesta {
-  const q = plano(pregunta);
+  // La plataforma dice resurtir. Quien todavía pregunte por embarques se
+  // refiere a lo mismo, así que se lee como resurtido y se contesta igual.
+  const q = plano(pregunta)
+    .replace(/\bembarques?\b/g, "sell in")
+    .replace(/\bembarc(?:o|aron|amos)\b/g, "resurtieron")
+    .replace(/\bembarcad[oa]s?\b/g, "lo resurtido")
+    .replace(/\bembar[cq]\w*/g, "resurtir");
 
   if (!q) return { tipo: "saludo", texto: presentacion(x) };
 
@@ -632,7 +716,15 @@ function resolver(pregunta: string, x: Entorno, hilo?: Hilo): Respuesta {
   if (!dim && tiene(` ${q} `, [" top ", " ranking ", " mejores ", " peores ", " mas ", " menos ", " mayor ", " menor ", " principales ", " cuales "])) {
     dim = SUELTAS.find(([w]) => ` ${resto} `.includes(` ${w} `))?.[1];
   }
-  let p = periodo(q);
+  // "Top 10 de sell-in", sin decir de qué: el Top 10 de la plataforma es de modelos.
+  if (!dim && tiene(` ${q} `, [" top ", " ranking "])) dim = "modelo";
+  let p = periodo(q, x.periodo);
+  if (p.fuera) {
+    return {
+      tipo: "dato",
+      texto: `De esas fechas no hay historia cargada. Lo que hay va del ${fechaCorta(PRIMER_DIA)} al ${fechaCorta(ULTIMO_DIA)}: doce semanas, hasta el corte ${CORTE.etiqueta}. Dime un periodo dentro de ese rango y te doy el sell-out y el sell-in en piezas y en monto.`,
+    };
+  }
 
   // Solo es seguimiento si la pregunta trae algo que cambiar. Un "hola" de
   // una palabra no es continuar la conversación anterior.
@@ -655,6 +747,12 @@ function resolver(pregunta: string, x: Entorno, hilo?: Hilo): Respuesta {
         cobertura…?" trae la palabra de una medida pero pide una explicación. */
   const c = concepto(q, x, cifras(x.vista, P8).cob);
   if (c) return { tipo: "concepto", texto: c };
+
+  /* "¿Qué no debo resurtir?" es la decisión contraria a la del resurtido
+     sugerido, y la pregunta más frecuente de las dos. */
+  if (tiene(q, ["no resurtir", "no debo resurtir", "no conviene resurtir", "dejar de resurtir", "dejo de resurtir", "no hay que resurtir",
+    "suspender el resurtido", "frenar el resurtido", "detener el resurtido", "parar el resurtido", "dejar de mandar", "no mandar", "no surtir"]))
+    return { tipo: "dato", texto: noResurtir(S, donde, x.umbral) };
 
   /* Dos preguntas que se hacen mucho y no caben en medida + periodo. */
   if (tiene(q, ["no hacer nada", "si no hago nada", "cuesta esperar", "no actuar"]))
@@ -679,7 +777,7 @@ function resolver(pregunta: string, x: Entorno, hilo?: Hilo): Respuesta {
     const delNegocio = VOCABULARIO.some((v) => ` ${q}`.includes(` ${v}`));
     return delNegocio
       ? { tipo: "sin-datos", texto: `No tengo cómo calcular eso con los datos del corte. Lo que sí resuelvo al momento: ${CAPACIDADES}. Dime cuál necesitas.` }
-      : { tipo: "fuera", texto: "Eso queda fuera de mi alcance: trabajo únicamente con la información comercial de este tablero. Puedo ayudarte con sell-out, inventario, cobertura, quiebres, traslados y el plan del año." };
+      : { tipo: "fuera", texto: "Eso queda fuera de mi alcance: trabajo únicamente con la información comercial de este tablero. Puedo ayudarte con sell-out, sell-in, inventario, cobertura, quiebres, resurtido y el plan del año." };
   }
 
   if (nombra && !S.length)
@@ -690,10 +788,9 @@ function resolver(pregunta: string, x: Entorno, hilo?: Hilo): Respuesta {
 
   /* 4 · Medidas que no son una cifra por grupo */
   if (m === "plan") return { tipo: "dato", texto: plan(x, q) };
-  if (m === "traslado") return { tipo: "dato", texto: trasladosTxt(x, donde) };
   if (m === "red") return { tipo: "dato", texto: red(S, donde) };
   if (m === "impacto" && !dim) return { tipo: "prioridad", texto: prioridades(x, q) };
-  if (m === "sellin") return { tipo: "dato", texto: sellIn(S, x, p, donde, nombra) };
+  if (m === "sellin" && !dim) return { tipo: "dato", texto: sellIn(S, p, donde), hilo: seguir };
 
   /* 5 · Desglose o cifra */
   if (dim) return { tipo: "dato", texto: desglose(S, m, dim, p, q, donde), hilo: seguir };
@@ -717,10 +814,31 @@ function panorama(S: Combo[], donde: string, umbral: number): Respuesta {
   };
 }
 
+/** Dónde no conviene resurtir: las combinaciones que ya rebasan el umbral. */
+function noResurtir(S: Combo[], donde: string, umbral: number): string {
+  const sobre = S.filter((c) => c.clase === "alto" || c.clase === "saturado");
+  if (!sobre.length) return `No hay ninguna combinación por encima de ${fmt(umbral)} semanas de cobertura ${donde}: no hay dónde suspender el resurtido.`;
+  const exc = sobre.reduce((a, c) => a + c.exc, 0);
+  const cap = sobre.reduce((a, c) => a + c.capital, 0);
+  const tr = sobre.reduce((a, c) => a + c.tr, 0);
+  const trMonto = sobre.reduce((a, c) => a + c.tr * c.costo, 0);
+  const top = [...sobre].sort((a, b) => b.capital - a.capital).slice(0, 3);
+  return `No conviene resurtir ${donde} en ${fmt(sobre.length)} combinaciones de tienda y modelo que ya rebasan ${fmt(umbral)} semanas de cobertura: les sobran ${fmt(exc)} piezas, ${moneyCorto(cap)} a precio de venta a la cadena.` +
+    ` Las de mayor monto: ${top.map((c) => `${c.modelo.sku} en ${c.sucursal.plaza} (${fmt(c.exc)} piezas de más, ${moneyCorto(c.capital)})`).join("; ")}.` +
+    (tr > 0 ? ` Hacia esas mismas combinaciones todavía van ${fmt(tr)} piezas en tránsito, ${moneyCorto(trMonto)}.` : "") +
+    " La lista completa está en Qué atender, pestaña No resurtir.";
+}
+
 function cifra(S: Combo[], m: Medida, p: Periodo, donde: string, umbral: number): string {
   const k = cifras(S, p);
   const per = nombrePeriodo(p);
-  const aviso = p.n === 1 && !p.salto ? " El corte es semanal: es el dato más reciente que hay." : "";
+  const aviso = p.dias
+    ? diasDe(p.dias) < 7
+      ? " La carga es semanal: las cifras por día salen de repartir cada semana entre sus días."
+      : ""
+    : p.n === 1 && !p.salto
+      ? " El corte es semanal: es el dato más reciente que hay."
+      : "";
 
   switch (m) {
     case "sellout":
@@ -737,13 +855,13 @@ function cifra(S: Combo[], m: Medida, p: Periodo, donde: string, umbral: number)
       if (k.pzPrev !== null && k.pzPrev > 0) {
         const ant = p.n === 1 ? "la semana anterior" : `las ${p.n} semanas anteriores`;
         comp = ` Son ${signo(variacion(k.pz, k.pzPrev))} contra ${ant} (${fmt(k.pzPrev)} piezas).`;
-      } else if (k.ventaAnt > 0) {
+      } else if (k.ventaAnt > 0 && !(p.dias && diasDe(p.dias) % 7 !== 0)) {
         comp = ` Contra el mismo periodo del año anterior: ${signo(variacion(k.venta, k.ventaAnt))}.`;
       }
       return base + comp + aviso;
     }
     case "inventario":
-      return `Hay ${fmt(k.inv)} piezas en canal ${donde}, repartidas en ${fmt(k.tiendas)} tiendas y con valor de ${moneyCorto(k.invCosto)} a costo. Equivalen a ${fmt(k.cob, 1)} semanas de cobertura contra un umbral de ${fmt(umbral)}. Además van ${fmt(k.tr)} piezas en tránsito.`;
+      return `Hay ${fmt(k.inv)} piezas en canal ${donde}, repartidas en ${fmt(k.tiendas)} tiendas y con valor de ${moneyCorto(k.invCosto)} a precio de venta a la cadena. Equivalen a ${fmt(k.cob, 1)} semanas de cobertura contra un umbral de ${fmt(umbral)}. Además van ${fmt(k.tr)} piezas en tránsito.`;
     case "cobertura":
       return `La cobertura ${donde} es de ${fmt(k.cob, 1)} semanas: ${fmt(k.inv)} piezas contra un desplazamiento de ${fmt(k.soSem, 1)} por semana. El umbral está en ${fmt(umbral)}. ${fmt(k.sobre)} combinaciones lo rebasan y ${fmt(k.quiebres)} están en quiebre.`;
     case "capital":
@@ -756,12 +874,8 @@ function cifra(S: Combo[], m: Medida, p: Periodo, donde: string, umbral: number)
     case "perdida": {
       const top = [...grupos(S.filter((c) => c.clase === "quiebre"), "modelo")].map(([n, cs]) => ({ n: n.split(" ")[0], v: cs.reduce((a, c) => a + c.perdida, 0), t: cs.length })).sort((a, b) => b.v - a.v).slice(0, 3);
       if (!k.quiebres) return `No hay quiebres ${donde}: ninguna combinación con venta viva está por debajo de ${fmt(PARAMS.coberturaMinima, 1)} semanas de cobertura.`;
-      return `Hay ${fmt(k.quiebres)} combinaciones en quiebre ${donde}. Cuestan ${moneyCorto(k.perdida)} de venta perdida por semana, ${moneyCorto(k.perdida * 52)} si se sostiene un año.` +
+      return `Hay ${fmt(k.quiebres)} combinaciones en quiebre ${donde}. Cuestan ${fmt(k.perdidaPz)} piezas y ${moneyCorto(k.perdida)} de venta perdida por semana; ${fmt(k.perdidaPz * 52)} piezas y ${moneyCorto(k.perdida * 52)} si se sostiene un año.` +
         (top.length ? ` Los modelos que más pesan: ${top.map((g) => `${g.n} en ${g.t === 1 ? "1 tienda" : `${g.t} tiendas`} (${moneyCorto(g.v)} por semana)`).join(", ")}.` : "");
-    }
-    case "margen": {
-      const mb = k.venta - k.costo;
-      return `El margen bruto ${donde} en ${per} es de ${fmt(k.venta > 0 ? (mb / k.venta) * 100 : 0, 1)}%: ${moneyCorto(mb)} sobre ${moneyCorto(k.venta)} de venta a precio de lista.`;
     }
     case "variacion": {
       const v = variacion(k.venta, k.ventaAnt);
@@ -784,18 +898,12 @@ function cifra(S: Combo[], m: Medida, p: Periodo, donde: string, umbral: number)
   }
 }
 
-function sellIn(S: Combo[], x: Entorno, p: Periodo, donde: string, nombra: boolean): string {
-  const serie = x.data.serie;
-  const fin = serie.length - p.salto;
-  const tramo = serie.slice(Math.max(0, fin - p.n), fin);
-  const totalSo = x.todos.reduce((a, c) => a + c.so, 0);
-  const parte = totalSo > 0 ? S.reduce((a, c) => a + c.so, 0) / totalSo : 1;
-  const si = tramo.reduce((a, s) => a + s.sellIn, 0) * parte;
-  const so = tramo.reduce((a, s) => a + s.sellOut, 0) * parte;
-  const idx = si > 0 ? (so / si) * 100 : 0;
-  return `El sell-in ${donde} en ${nombrePeriodo(p)} fue de ${fmt(si)} piezas contra un sell-out de ${fmt(so)}: se desplazó el ${fmt(idx, 1)}% de lo embarcado.` +
-    (idx < 95 ? " La diferencia se queda en el canal como inventario." : "") +
-    (nombra || parte < 0.999 ? " El embarque se registra a nivel canal; para este alcance es una estimación por participación en el desplazamiento." : "");
+function sellIn(S: Combo[], p: Periodo, donde: string): string {
+  const k = cifras(S, p);
+  const idx = k.pzIn > 0 ? (k.pz / k.pzIn) * 100 : 0;
+  const dif = k.pzIn - k.pz;
+  return `El sell-in ${donde} en ${nombrePeriodo(p)} fue de ${fmt(k.pzIn)} piezas, ${moneyCorto(k.montoIn)} a precio de venta a la cadena. En el mismo periodo el sell-out fue de ${fmt(k.pz)} piezas: se desplazó el ${fmt(idx, 1)}% de lo resurtido.` +
+    (dif > 0.5 ? ` Las ${fmt(dif)} piezas de diferencia se quedaron en el canal como inventario.` : dif < -0.5 ? ` Se vendieron ${fmt(-dif)} piezas más de las que entraron: el inventario del canal bajó.` : "");
 }
 
 /** Lo que cuesta dejar el canal como está un mes más. */
@@ -803,7 +911,7 @@ function inaccion(S: Combo[], donde: string): string {
   const k = cifras(S, P8);
   const perdidaMes = k.perdida * 4.3;
   const financiero = (k.capital * PARAMS.costoCapitalAnual) / 12;
-  return `Un mes más sin actuar ${donde} cuesta ${moneyCorto(perdidaMes + financiero)}: ${moneyCorto(perdidaMes)} de venta que no ocurre por los ${fmt(k.quiebres)} quiebres, y ${moneyCorto(financiero)} de costo financiero por los ${moneyCorto(k.capital)} parados, a ${fmt(PARAMS.costoCapitalAnual * 100)}% anual. No incluye el riesgo de perder espacio de anaquel con el comprador.`;
+  return `Un mes más sin actuar ${donde} cuesta ${moneyCorto(perdidaMes + financiero)}: ${moneyCorto(perdidaMes)} de venta que no ocurre por los ${fmt(k.quiebres)} quiebres (${fmt(k.perdidaPz * 4.3)} piezas), y ${moneyCorto(financiero)} de costo financiero por las ${fmt(k.exc)} piezas y ${moneyCorto(k.capital)} parados, a ${fmt(PARAMS.costoCapitalAnual * 100)}% anual. No incluye el riesgo de perder espacio de anaquel con el comprador.`;
 }
 
 /** La semana del corte contra la anterior. */
@@ -814,7 +922,10 @@ function cambioSemanal(S: Combo[], donde: string): string {
   const cad = [...grupos(S, "cadena")].map(([n, cs]) => { const y = cifras(cs, hoy); return { n, v: variacion(y.pz, y.pzPrev ?? 0) }; }).sort((a, b) => b.v - a.v);
   return `En la semana del corte (S${CORTE.semana}) el sell-out ${donde} fue de ${fmt(k.pz)} piezas contra ${fmt(prev)} de la semana anterior: ${signo(variacion(k.pz, prev))}.` +
     (cad.length > 1 ? ` Por cadena: ${cad.map((c) => `${c.n} ${signo(c.v)}`).join(", ")}.` : "") +
-    " El inventario, la cobertura y los quiebres se leen al corte; no guardo la foto de la semana pasada para compararlos.";
+    (() => {
+      const cc = cambioDeCorte(S);
+      return ` Contra el corte anterior hay ${fmt(cc.nuevas.length)} alertas nuevas y ${fmt(cc.resueltas.length)} resueltas; las piezas sobre el umbral pasaron de ${fmt(cc.antes.excedente)} a ${fmt(cc.hoy.excedente)} y los quiebres de ${fmt(cc.antes.quiebres)} a ${fmt(cc.hoy.quiebres)}. El detalle está en el Mapa de alertas.`;
+    })();
 }
 
 function red(S: Combo[], donde: string): string {
@@ -825,12 +936,6 @@ function red(S: Combo[], donde: string): string {
   const pct = todas.length ? ((todas.length - sin.length) / todas.length) * 100 : 0;
   return `La red ${donde} tiene ${fmt(todas.length)} tiendas y ${fmt(todas.length - sin.length)} entregan sell-out: ${fmt(pct, 1)}% de cobertura de reporte.` +
     (sin.length ? ` No reportan: ${sin.slice(0, 6).map((t) => t.nombre).join(", ")}${sin.length > 6 ? ` y ${sin.length - 6} más` : ""}. En esas tiendas no se calcula cobertura ni excedente: sin sell-out no hay denominador, y declarar una cifra sería inventarla.` : " No hay brecha de información.");
-}
-
-function trasladosTxt(x: Entorno, donde: string): string {
-  const h = x.hallazgos.find((y) => y.id === "traslados");
-  if (!h) return `No hay traslados que proponer ${donde}. Un traslado solo existe entre tiendas de la misma cadena y con el mismo modelo, con excedente en el origen y riesgo de quiebre en el destino.`;
-  return `${h.titulo}. ${h.cuerpo} ${h.accion} Valen ${moneyCorto(h.valor)}. El detalle, traslado por traslado, está en la pantalla Qué atender.`;
 }
 
 function prioridades(x: Entorno, q: string): string {
@@ -846,10 +951,10 @@ function plan(x: Entorno, q: string): string {
   const p = x.plan;
   if (!p) return "El plan del año se arma en la pantalla Escenarios y su resultado está en Estado de resultados.";
   if (tiene(q, ["escenarios", "comparacion", "compara", "cual escenario", "que escenario", "mejor escenario"])) {
-    const todos = [{ nombre: p.nombre, ebitda: p.ebitda, ebitdaPct: p.ebitdaPct, ingreso: p.ingreso }, ...p.otros].sort((a, b) => b.ebitda - a.ebitda);
-    return "Los escenarios, por EBITDA:\n" + todos.map((e, i) => `${i + 1}. ${e.nombre}: ${moneyCorto(e.ebitda)} (${fmt(e.ebitdaPct, 1)}% sobre ${moneyCorto(e.ingreso)} de ingreso)`).join("\n");
+    const todos = [{ nombre: p.nombre, ebitda: p.ebitda, ebitdaPct: p.ebitdaPct, ingreso: p.ingreso, unidades: p.unidades }, ...p.otros].sort((a, b) => b.ebitda - a.ebitda);
+    return "Los escenarios, por EBITDA, todos sobre sell-in:\n" + todos.map((e, i) => `${i + 1}. ${e.nombre}: ${moneyCorto(e.ebitda)} (${fmt(e.ebitdaPct, 1)}% sobre ${moneyCorto(e.ingreso)} de ingreso, ${fmt(e.unidades)} piezas)`).join("\n");
   }
-  return `El escenario activo es ${p.nombre}: ingreso de ${moneyCorto(p.ingreso)} en doce meses, margen bruto de ${moneyCorto(p.margenBruto)} (${fmt(p.margenPct, 1)}%) y EBITDA de ${moneyCorto(p.ebitda)}, ${fmt(p.ebitdaPct, 1)}% sobre ingreso. Los supuestos se mueven en la pantalla Escenarios.`;
+  return `El escenario activo es ${p.nombre}, y se calcula sobre sell-in: ${fmt(p.unidades)} piezas e ingreso de ${moneyCorto(p.ingreso)} en doce meses, margen de ${moneyCorto(p.margenBruto)} (${fmt(p.margenPct, 1)}%) y EBITDA de ${moneyCorto(p.ebitda)}, ${fmt(p.ebitdaPct, 1)}% sobre ingreso. Los supuestos se mueven en la pantalla Escenarios.`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -872,7 +977,8 @@ export function resumenDatos(x: Entorno) {
       venta8SemMXN: Math.round(a.venta), variacionAnualPct: Number(variacion(a.venta, a.ventaAnt).toFixed(1)),
       piezas: a.inv, coberturaSem: Number(a.cob.toFixed(1)), capitalMXN: Math.round(a.capital),
       quiebres: a.quiebres, ventaPerdidaSemMXN: Math.round(a.perdida),
-      margenPct: a.venta > 0 ? Number((((a.venta - a.costo) / a.venta) * 100).toFixed(1)) : 0,
+      sellin8SemPiezas: Math.round(a.pzIn), sellin8SemMXN: Math.round(a.montoIn),
+      piezasSobreUmbral: a.exc, ventaPerdidaSemPiezas: Math.round(a.perdidaPz), resurtidoSugeridoPiezas: a.sug,
     };
   };
   const tabla = (d: Dimension, tope: number) =>

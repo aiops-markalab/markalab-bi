@@ -51,6 +51,8 @@ export default function Copiloto() {
   const liberable = hallazgos
     .filter((h) => h.unidad === "liberable")
     .reduce((a, h) => a + h.valor, 0);
+  const pzasDe = (u: string) =>
+    hallazgos.filter((h) => h.unidad === u).reduce((a, h) => a + (h.piezas ?? 0), 0);
   const criticas = hallazgos.filter((h) => h.severidad === "critica").length;
 
   async function preguntar(texto: string) {
@@ -102,12 +104,19 @@ export default function Copiloto() {
           tono={criticas ? "flag" : undefined}
           n={`${criticas} críticos`}
         />
-        <Tile k="Capital liberable" v={moneyCorto(liberable)} tono="accent" n="Dejando de embarcar y liquidando" />
+        <Tile
+          k="Capital liberable"
+          v={moneyCorto(liberable)}
+          s={`${fmt(pzasDe("liberable"))} pzas`}
+          tono="accent"
+          n="Dejando de resurtir lo que sobra y liquidando"
+        />
         <Tile
           k="Venta recuperable"
           v={moneyCorto(recuperable)}
+          s={`${fmt(pzasDe("recuperable"))} pzas`}
           tono="ok"
-          n="Doce meses, cerrando quiebres y trasladando"
+          n="Doce meses, resurtiendo los quiebres"
         />
         <Tile
           k="Decisiones registradas"
@@ -365,6 +374,7 @@ function HallazgoFila({
                       : "en riesgo"
                 }`
               : ""}
+            {h.piezas ? ` · ${fmt(h.piezas)} pzas` : ""}
           </span>
         </div>
         <span style={{ color: "var(--ink-3)", fontSize: 12 }}>{abierto ? "Cerrar" : "Ver"}</span>

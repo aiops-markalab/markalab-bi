@@ -257,7 +257,7 @@ export function Barras({
  * Mapa de árbol: margen por colección
  * ------------------------------------------------------------------ */
 
-export type Baldosa = { nombre: string; valor: number; intensidad: number; nota: string };
+export type Baldosa = { nombre: string; valor: number; intensidad: number; nota: string; pzas?: number };
 
 export function Treemap({ datos }: { datos: Baldosa[] }) {
   const [hover, setHover] = useState<number | null>(null);
@@ -330,7 +330,19 @@ export function Treemap({ datos }: { datos: Baldosa[] }) {
                     style={{ fontVariantNumeric: "tabular-nums" }}
                   >
                     {moneyCorto(c.d.valor)}
+                    {c.d.pzas != null && (c.h <= 54 || c.w <= 90) && c.w > 150 ? ` · ${fmt(c.d.pzas)} pzas` : ""}
                   </text>
+                  {c.d.pzas != null && c.h > 54 && c.w > 90 ? (
+                    <text
+                      x={c.x + 11}
+                      y={c.y + 52}
+                      fontSize="11"
+                      fill={fuerte > 0.55 ? "rgba(255,255,255,.85)" : "var(--ink-2)"}
+                      style={{ fontVariantNumeric: "tabular-nums" }}
+                    >
+                      {fmt(c.d.pzas)} pzas
+                    </text>
+                  ) : null}
                 </>
               ) : null}
             </g>

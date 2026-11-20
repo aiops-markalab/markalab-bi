@@ -67,17 +67,43 @@ export const GUIAS: Guia[] = [
     ],
   },
   {
-    id: "traslado",
-    titulo: "Por qué no puedo mover una pieza de una cadena a otra",
+    id: "resurtir",
+    titulo: "Qué significan No resurtir y Resurtir",
     resumen:
-      "La regla de los traslados y qué hacer cuando el excedente está en la cadena equivocada.",
-    claves: ["traslado", "mover", "cadena", "transferir", "reubicar", "entre tiendas"],
+      "Las dos decisiones que la marca sí controla: a dónde deja de mandar producto y a dónde manda.",
+    claves: ["resurtir", "no resurtir", "resurtido", "sugerido", "traslado", "mover", "entre tiendas", "embarque"],
     ruta: "/ejecucion",
     pasos: [
-      "Una pieza embarcada ya es inventario del retailer que la compró. Entre Liverpool y Sears no hay traslado, hay renegociación de embarque.",
-      "Por eso la plataforma solo propone traslados dentro de la misma cadena.",
-      "Además el modelo tiene que coincidir: un quiebre de Acero Azul no se cubre con Acero Verde, aunque sean la misma colección.",
-      "Cuando el excedente está en la cadena equivocada, la salida no es trasladar: es dejar de embarcar a esa cadena y negociar una liquidación.",
+      "No resurtir enlista las combinaciones de tienda y modelo que ya rebasan el umbral: tienen más piezas de las que pueden vender. Mandarles más las satura.",
+      "Resurtir enlista las que están en quiebre: el modelo sí se vende ahí y la tienda está en cero o por agotarse. Cada una trae sus piezas sugeridas y su monto.",
+      "El sugerido deja a la tienda con 56 días de inventario, descontando lo que ya va en tránsito.",
+      "La plataforma no propone mover mercancía entre tiendas. Lo que ya se resurtió es inventario de la cadena, y moverlo es decisión de la cadena.",
+    ],
+  },
+  {
+    id: "periodo",
+    titulo: "Elegir de qué día a qué día ver",
+    resumen: "El calendario de la pastilla Periodo, junto al umbral.",
+    claves: ["periodo", "calendario", "fechas", "dia", "semana", "rango", "desde", "hasta", "ayer"],
+    pasos: [
+      "La pastilla Periodo, junto al umbral, abre un calendario.",
+      "Se elige de tres maneras: con un atajo (última semana, últimas 4 semanas), con dos clics en el calendario (el día inicial y el final), o con un clic en el número de semana para tomarla completa.",
+      "El periodo cambia las cifras que se suman en el tiempo: sell-out, sell-in y los dos Top 10, en piezas y en monto.",
+      "Inventario, cobertura y alertas no cambian con el periodo: son la fotografía del corte.",
+      "La carga es semanal. El detalle por día reparte cada semana con el peso que cada día tiene en una tienda departamental.",
+    ],
+  },
+  {
+    id: "cortes",
+    titulo: "Saber qué alertas se resolvieron contra el corte anterior",
+    resumen: "El Mapa de alertas enseña el corte anterior y el actual, lado a lado.",
+    claves: ["corte anterior", "resueltas", "nuevas", "comparar cortes", "semana pasada", "versus", "atendida"],
+    ruta: "/mapa",
+    pasos: [
+      "El Mapa de alertas pinta dos mapas con las mismas reglas: el del corte anterior y el del corte actual.",
+      "Arriba, tres indicadores dicen cuántas alertas se resolvieron, cuántas son nuevas y cuántas siguen, con sus piezas y su monto.",
+      "La tabla Qué cambió entre los dos cortes enlista cada combinación con su situación, sus piezas y su monto antes y hoy.",
+      "Una alerta se resuelve cuando la combinación regresa al rango. No hay que marcarla a mano: lo dice el siguiente corte.",
     ],
   },
   {
@@ -112,7 +138,7 @@ export const GUIAS: Guia[] = [
     pasos: [
       "Del lado de producto hay seis: Marca, Segmento, Colección, Modelo, Género y Material.",
       "Marca es el primer nivel de negociación: el comprador de la cadena negocia por marca.",
-      "Colección y modelo no son lo mismo. Tsuyosa es la colección; CTZ-TS1525 es el modelo, y es el nivel al que se embarca.",
+      "Colección y modelo no son lo mismo. Tsuyosa es la colección; CTZ-TS1525 es el modelo, y es el nivel al que se resurte.",
       "Género y material son los niveles con los que compra la cadena, no los que usa la marca para fabricar.",
       "Los tres primeros están en la barra superior. Género y material se despliegan con el botón Más filtros.",
     ],
@@ -124,10 +150,10 @@ export const GUIAS: Guia[] = [
     claves: ["escenario", "supuesto", "ebitda", "planeacion", "proyeccion", "simulacion"],
     ruta: "/planeacion",
     pasos: [
-      "Cada escenario tiene diez supuestos editables: crecimiento, precio, servicio, mercadotecnia, días objetivo, liquidación y el resto.",
+      "El plan se calcula sobre sell-in: lo que la marca le vende a las cadenas. Cada escenario tiene diez supuestos editables: crecimiento, precio, servicio, mercadotecnia, días objetivo, liquidación y el resto.",
       "Al mover uno, el cambio se propaga por el modelo hasta el EBITDA, y la pantalla muestra el resultado contra el escenario base.",
       "El escenario Base está bloqueado a propósito: es la referencia contra la que se compara todo lo demás.",
-      "Estado de resultados muestra el P&L trimestral del escenario activo contra el plan comprometido.",
+      "Estado de resultados muestra el P&L trimestral del escenario activo contra el plan comprometido. El sell-out aparece aparte, como lo que cada cadena ya vendió.",
     ],
   },
   {
@@ -154,7 +180,7 @@ export const GUIAS: Guia[] = [
     pasos: [
       "Al pie de cada pantalla hay una barra de descarga. Baja el libro de esa pantalla con los filtros que tengas puestos: Resumen, Mapa, Qué atender, Detalle, Reportes, Escenarios, Estado de resultados, Copiloto y Salud del dato.",
       "Todo libro abre en una hoja Tablero: los indicadores arriba, los supuestos en celdas azules y las gráficas abajo. El detalle va en hojas aparte.",
-      "Las celdas azules se mueven. Al cambiar el umbral, el flete o un supuesto del plan, las fórmulas recalculan el libro completo.",
+      "Las celdas azules se mueven. Al cambiar el umbral, los días objetivo o un supuesto del plan, las fórmulas recalculan el libro completo.",
       "En Reportes, además, el botón CSV baja la tabla cruda, con punto y coma como separador.",
       "Si necesitas el detalle crudo sin agrupar, pon Punto de venta y Modelo como filas y enciende las medidas que ocupes antes de bajar el CSV.",
     ],
@@ -178,8 +204,8 @@ export const GUIAS: Guia[] = [
     pasos: [
       "En Reportes, el botón Simulador del corte baja un libro con el corte completo y sus palancas.",
       "La hoja Datos trae el corte completo del alcance filtrado, una línea por tienda y modelo, con filtros puestos en los encabezados. Desde ahí se puede insertar una tabla dinámica de Excel en dos clics.",
-      "La hoja Tablero tiene siete celdas azules: crecimiento, precio, umbral de cobertura, liquidación, descuento, costo financiero y gasto operativo. Al cambiarlas, la venta, el margen, el capital inmovilizado y el EBITDA se recalculan solos.",
-      "Las hojas Cadenas y Colecciones traen la venta simulada contra el año anterior y el margen, con dos gráficas que siguen a esas tablas.",
+      "La hoja Tablero tiene cinco celdas azules: crecimiento del sell-in, cambio de precio, umbral de cobertura, parte del excedente que se liquida y descuento. Al cambiarlas, el sell-in simulado, las piezas sobre el umbral y el capital inmovilizado se recalculan solos.",
+      "Las hojas Cadenas y Colecciones traen el sell-in y el sell-out, en piezas y en monto, con dos gráficas que siguen a esas tablas.",
       "Todo lo de abajo son fórmulas de Excel, no valores pegados: si alguien cambia un dato de la hoja Datos, el resto se ajusta.",
       "El umbral del simulador hace lo mismo que el de la plataforma: a 8 semanas sale más excedente, a 16 menos.",
     ],
@@ -192,7 +218,7 @@ export const GUIAS: Guia[] = [
     ruta: "/salud",
     pasos: [
       "Una tienda que no entrega sell-out no tiene cobertura calculable: sin denominador no hay cálculo.",
-      "Esas sucursales muestran existencia pero aparecen como Sin dato, y quedan fuera del excedente y de los traslados.",
+      "Esas sucursales muestran existencia pero aparecen como Sin dato, y quedan fuera del excedente y del resurtido sugerido.",
       "La pantalla Salud del dato dice qué porcentaje de la red entrega información y qué decisiones conviene no tomar por debajo de cierto nivel.",
     ],
   },
@@ -209,6 +235,41 @@ export const NOVEDADES: Novedad[] = [
   {
     fecha: "2026-11-20",
     tipo: "Novedad",
+    titulo: "Calendario de periodo",
+    cuerpo:
+      "Junto al umbral hay una pastilla Periodo que abre un calendario. Se elige de qué día a qué día, o de qué semana a qué semana, y el sell-out, el sell-in y los Top 10 se suman dentro de ese periodo.",
+  },
+  {
+    fecha: "2026-11-20",
+    tipo: "Novedad",
+    titulo: "Corte anterior contra corte actual",
+    cuerpo:
+      "El Mapa de alertas enseña los dos cortes lado a lado y enlista qué alertas se resolvieron, cuáles son nuevas y cuáles siguen, con piezas y monto. Sustituye al botón de marcar como atendida.",
+  },
+  {
+    fecha: "2026-11-20",
+    tipo: "Novedad",
+    titulo: "Top 10 de sell-in y piezas en todo",
+    cuerpo:
+      "El Resumen trae dos Top 10: el de sell-out y el de sell-in, con piezas, monto y número de ítems. Todas las pantallas muestran piezas y monto, no solo porcentaje.",
+  },
+  {
+    fecha: "2026-11-20",
+    tipo: "Novedad",
+    titulo: "Resurtir en lugar de embarcar, y sin traslados",
+    cuerpo:
+      "Las decisiones ahora son No resurtir y Resurtir. Se quitaron los traslados entre tiendas, porque mover la mercancía ya resurtida es decisión de la cadena. Los escenarios y el estado de resultados se calculan sobre sell-in.",
+  },
+  {
+    fecha: "2026-11-20",
+    tipo: "Novedad",
+    titulo: "Los libros de Excel, al día",
+    cuerpo:
+      "Los libros que se descargan traen lo mismo que las pantallas: piezas y monto, sell-out y sell-in del periodo elegido, los dos Top 10, la comparación contra el corte anterior en el libro del mapa y el plan sobre sell-in. Ya no hay hoja de traslados y la de No embarcar ahora es No resurtir.",
+  },
+  {
+    fecha: "2026-11-20",
+    tipo: "Novedad",
     titulo: "Cada pantalla baja su propio Excel",
     cuerpo:
       "Al pie de cada pantalla hay una barra de descarga. Baja un libro con el tablero de indicadores, las gráficas y las fórmulas de esa pantalla, con los filtros que tengas puestos. Las celdas azules son supuestos: al moverlas se recalcula el libro completo.",
@@ -218,14 +279,14 @@ export const NOVEDADES: Novedad[] = [
     tipo: "Novedad",
     titulo: "Argos contesta con el dato exacto",
     cuerpo:
-      "Argos ya calcula lo que se le pregunta: sell-out, venta, inventario, cobertura, capital, quiebres o margen; por cadena, colección, estado, tienda o modelo; de la semana, del mes o de las últimas 8 y 12 semanas. Si la pregunta no es del tablero, lo dice en una línea.",
+      "Argos ya calcula lo que se le pregunta: sell-out, sell-in, inventario, cobertura, capital, quiebres o resurtido; por cadena, colección, estado, tienda o modelo; de la semana, del mes o de las últimas 8 y 12 semanas. Si la pregunta no es del tablero, lo dice en una línea.",
   },
   {
     fecha: "2026-11-20",
     tipo: "Corrección",
     titulo: "El mapa vuelve a abrir el detalle",
     cuerpo:
-      "Al dar clic en un estado o en una bandera la pantalla se oscurecía y no aparecía nada. El cajón con el resumen de la incidencia ya abre: qué pasa, qué no embarcar, qué trasladar y qué resurtir.",
+      "Al dar clic en un estado o en una bandera la pantalla se oscurecía y no aparecía nada. El cajón con el resumen de la incidencia ya abre: qué pasa, dónde no resurtir y dónde resurtir.",
   },
   {
     fecha: "2026-11-19",

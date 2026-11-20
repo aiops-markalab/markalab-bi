@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useBI } from "@/lib/store";
 import { Tile } from "@/components/ui";
+import { ReferenciaSellOut } from "@/components/referencia";
 import { fmt, moneyCorto, pct } from "@/lib/engine";
 import { proyectar, estadoResultados, CAMPOS_SUPUESTO } from "@/lib/plan";
 import { Descarga, useBase } from "@/components/descarga";
@@ -25,6 +26,9 @@ export default function Resultados() {
 
   const renglones = useMemo(() => estadoResultados(p), [p]);
   const renglonesPlan = useMemo(() => estadoResultados(pPlan), [pPlan]);
+  const piezasQ = [0, 1, 2, 3].map((i) =>
+    p.unidadesMes.slice(i * 3, i * 3 + 3).reduce((a, b) => a + b, 0)
+  );
 
   return (
     <div className="view">
@@ -33,8 +37,9 @@ export default function Resultados() {
           <div style={{ flex: "1 1 320px" }}>
             <h3>Estado de resultados proyectado</h3>
             <p className="sub">
-              Doce meses bajo el escenario <strong>{activo.nombre}</strong>, comparado contra el
-              Plan 2027 comprometido. Cambiar un supuesto en Escenarios recalcula esta tabla
+              Doce meses de sell-in bajo el escenario <strong>{activo.nombre}</strong>, comparado
+              contra el Plan 2027 comprometido. Ingreso, costo y margen son los de la marca: lo que
+              le vende a las cadenas. Cambiar un supuesto en Escenarios recalcula esta tabla
               completa.
             </p>
           </div>
@@ -53,19 +58,31 @@ export default function Resultados() {
       </div>
 
       <div className="tiles">
-        <Tile k="Ingreso neto" v={moneyCorto(p.ingreso)} n="Doce meses" />
-        <Tile k="Margen bruto" v={moneyCorto(p.margenBruto)} n={`${pct(p.margenPct)} sobre ingreso`} />
+        <Tile
+          k="Sell-in proyectado"
+          v={moneyCorto(p.ingreso)}
+          s={`${fmt(p.unidades)} pzas`}
+          n="Doce meses, a precio de venta a la cadena"
+        />
+        <Tile
+          k="Margen sobre sell-in"
+          v={moneyCorto(p.margenBruto)}
+          s={pct(p.margenPct)}
+          n="Sell-in menos el costo del producto"
+        />
         <Tile
           k="EBITDA"
           v={moneyCorto(p.ebitda)}
+          s={pct(p.ebitdaPct)}
           tono={p.ebitda >= pPlan.ebitda ? "ok" : "flag"}
-          n={`${pct(p.ebitdaPct)} sobre ingreso`}
+          n="Sobre el ingreso por sell-in"
         />
         <Tile
           k="Contra el Plan 2027"
           v={moneyCorto(p.ebitda - pPlan.ebitda)}
+          s={`${p.unidades - pPlan.unidades >= 0 ? "+" : "−"}${fmt(Math.abs(p.unidades - pPlan.unidades))} pzas`}
           tono={p.ebitda >= pPlan.ebitda ? "ok" : "flag"}
-          n={p.ebitda >= pPlan.ebitda ? "Por encima del compromiso" : "Por debajo del compromiso"}
+          n={p.ebitda >= pPlan.ebitda ? "EBITDA por encima del compromiso" : "EBITDA por debajo del compromiso"}
         />
       </div>
 
@@ -89,6 +106,35 @@ export default function Resultados() {
               </tr>
             </thead>
             <tbody>
+              <tr>
+                <td className="name" style={{ fontWeight: 700 }}>
+                  Piezas de sell-in
+                </td>
+                {piezasQ.map((v, j) => (
+                  <td key={j} className="n" style={{ fontWeight: 700 }}>
+                    {fmt(v)}
+                  </td>
+                ))}
+                <td className="n" style={{ fontWeight: 700 }}>
+                  {fmt(p.unidades)}
+                </td>
+                <td
+                  className="n"
+                  style={{
+                    color:
+                      activo.id === "plan"
+                        ? "var(--ink-3)"
+                        : p.unidades >= pPlan.unidades
+                          ? "var(--good-ink)"
+                          : "var(--crit-ink)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {activo.id === "plan"
+                    ? "—"
+                    : `${p.unidades >= pPlan.unidades ? "+" : "−"}${fmt(Math.abs(p.unidades - pPlan.unidades))}`}
+                </td>
+              </tr>
               {renglones.map((r, i) => {
                 const ref = renglonesPlan[i];
                 const dif = r.total - (ref?.total ?? 0);
@@ -141,8 +187,9 @@ export default function Resultados() {
           </table>
         </div>
         <p className="note">
-          Costos y gastos se presentan en negativo para que cada subtotal se lea como una suma.
-          Cifras de demostración, en pesos mexicanos.
+          Todo el estado de resultados corre sobre sell-in: piezas que la marca le vende a las
+          cadenas, a su precio de venta. Costos y gastos se presentan en negativo para que cada
+          subtotal se lea como una suma. Cifras de demostración, en pesos mexicanos.
         </p>
       </div>
 
@@ -155,7 +202,8 @@ export default function Resultados() {
               <thead>
                 <tr>
                   <th>Escenario</th>
-                  <th className="n">Ingreso</th>
+                  <th className="n">Sell-in (pzas)</th>
+                  <th className="n">Sell-in $</th>
                   <th className="n">Margen %</th>
                   <th className="n">EBITDA</th>
                   <th className="n">EBITDA %</th>
@@ -189,6 +237,7 @@ export default function Resultados() {
                         />
                         <strong>{e.nombre}</strong>
                       </td>
+                      <td className="n">{fmt(q.unidades)}</td>
                       <td className="n">{moneyCorto(q.ingreso)}</td>
                       <td className="n">{pct(q.margenPct)}</td>
                       <td className="n">{moneyCorto(q.ebitda)}</td>
@@ -203,18 +252,18 @@ export default function Resultados() {
         </div>
 
         <div className="card">
-          <h3>Ingreso y margen por cadena</h3>
+          <h3>Sell-in y margen por cadena</h3>
           <p className="sub">
-            Reparto proporcional al peso que cada socio tiene en la corrida actual.
+            Reparto proporcional al sell-in que cada cadena tiene en lo cargado.
           </p>
           <div className="tablewrap" style={{ maxHeight: "none" }}>
             <table>
               <thead>
                 <tr>
                   <th>Cadena</th>
-                  <th className="n">Unidades</th>
-                  <th className="n">Ingreso</th>
-                  <th className="n">Margen</th>
+                  <th className="n">Sell-in (pzas)</th>
+                  <th className="n">Sell-in $</th>
+                  <th className="n">Margen $</th>
                   <th className="n">Peso</th>
                 </tr>
               </thead>
@@ -235,9 +284,10 @@ export default function Resultados() {
           </div>
         </div>
       </div>
+      <ReferenciaSellOut />
       <Descarga
         titulo="El estado de resultados en Excel"
-        contenido="El modelo del plan completo en fórmulas: los diez supuestos son celdas vivas y recalculan el P&L por trimestre, el EBITDA y la comparación contra los demás escenarios."
+        contenido="El modelo del plan sobre sell-in, en fórmulas: los diez supuestos son celdas vivas y recalculan el P&L por trimestre, el EBITDA y la comparación contra los demás escenarios."
         armar={() => libroEscenario(base, activo, escenarios)}
       />
     </div>

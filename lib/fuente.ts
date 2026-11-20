@@ -9,7 +9,7 @@
  * función.
  *
  * Lo que NO cambia al pasar a producción, y por eso no está aquí:
- *  - Las fórmulas (cobertura, capital inmovilizado, venta perdida, traslados).
+ *  - Las fórmulas (cobertura, capital inmovilizado, venta perdida, resurtido).
  *    Viven en engine.ts y son las mismas con datos reales.
  *  - Las nueve reglas del copiloto. Viven en copiloto.ts.
  *  - Las pantallas. Leen del store, no de la fuente.
