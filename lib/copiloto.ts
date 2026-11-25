@@ -155,31 +155,12 @@ export function analizar(
       severidad: "alta",
       titulo: `Alta gama colocada donde no rota`,
       cuerpo: `${malAsignado.length} referencias de alta gama con inventario y sin una sola pieza desplazada en la ventana, en ${plazas.length} ciudades: ${plazas.slice(0, 3).join(", ")}. Entre ellas ${[...new Set(malAsignado.map((c) => c.modelo.sku))].slice(0, 3).join(", ")}. Son ${fmt(malAsignado.reduce((a, c) => a + c.inv, 0))} piezas y ${moneyCorto(cap)} inmovilizados, a precio de venta a la cadena.`,
-      accion: `No es un problema de inventario sino de asignación. Dejar de resurtir alta gama a estas tiendas, sacarla de su surtido base y acordar con la cadena la salida de lo que ya tiene.`,
+      accion: `No es un problema de inventario sino de asignación. Dejar de resurtir alta gama a estas tiendas y sacarla de su surtido base. Lo que ya está en la tienda es de la cadena; lo que la marca decide es no mandar más.`,
       regla: `Segmento alta gama · existencia > 0 · desplazamiento < 0.03 pzas/sem durante toda la ventana`,
       valor: cap,
       piezas: malAsignado.reduce((a, c) => a + c.inv, 0),
       unidad: "liberable",
       area: "Comercial",
-    });
-  }
-
-  /* R5 · Inventario envejecido */
-  const viejo = combos.filter((c) => c.edad > 360 && c.inv > 0);
-  if (viejo.length >= 3) {
-    const cap = viejo.reduce((a, c) => a + c.inv * c.costo, 0);
-    const col = [...new Set(viejo.map((c) => c.coleccion.nombre))];
-    h.push({
-      id: "envejecido",
-      severidad: "media",
-      titulo: `${fmt(viejo.reduce((a, c) => a + c.inv, 0))} piezas con más de un año en canal`,
-      cuerpo: `Concentradas en ${col.slice(0, 2).join(" y ")}: ${moneyCorto(cap)} a precio de venta a la cadena. Cada semana que pasa valen menos y ocupan un espacio de anaquel que el comprador puede reasignar a otra marca.`,
-      accion: `Acordar con la cadena una liquidación dirigida con descuento escalonado. El modelo de planeación tiene el supuesto de liquidación para medir el efecto antes de comprometerlo.`,
-      regla: `Días en canal > 360 con existencia > 0`,
-      valor: cap,
-      piezas: viejo.reduce((a, c) => a + c.inv, 0),
-      unidad: "liberable",
-      area: "Inventario",
     });
   }
 

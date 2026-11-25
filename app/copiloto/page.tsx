@@ -109,7 +109,7 @@ export default function Copiloto() {
           v={moneyCorto(liberable)}
           s={`${fmt(pzasDe("liberable"))} pzas`}
           tono="accent"
-          n="Dejando de resurtir lo que sobra y liquidando"
+          n="Dejando de resurtir donde ya sobra"
         />
         <Tile
           k="Venta recuperable"

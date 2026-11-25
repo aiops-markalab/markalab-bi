@@ -287,7 +287,7 @@ export default function Resultados() {
       <ReferenciaSellOut />
       <Descarga
         titulo="El estado de resultados en Excel"
-        contenido="El modelo del plan sobre sell-in, en fórmulas: los diez supuestos son celdas vivas y recalculan el P&L por trimestre, el EBITDA y la comparación contra los demás escenarios."
+        contenido="El modelo del plan sobre sell-in, en fórmulas: los nueve supuestos son celdas vivas y recalculan el P&L por trimestre, el EBITDA y la comparación contra los demás escenarios."
         armar={() => libroEscenario(base, activo, escenarios)}
       />
     </div>

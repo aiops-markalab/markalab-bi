@@ -129,10 +129,10 @@ export const SITUACIONES: Situacion[] = [
   },
   {
     id: "envejecido",
-    titulo: "Corso envejeciendo en el anaquel",
+    titulo: "Corso sin rotar en Sears",
     resumen:
-      "Más de un año en canal en varias tiendas Sears. Cada semana que pasa vale menos.",
-    evidencia: "El tramo de más de 360 días concentra capital de una sola colección.",
+      "Varias tiendas Sears tienen Corso de sobra y lo venden a la mitad del ritmo. Lo que toca es no resurtirles más.",
+    evidencia: "Las combinaciones de Corso en Sears aparecen en la lista No resurtir.",
   },
   {
     id: "apertura",
@@ -534,7 +534,7 @@ function aplicarSituaciones(combos: Combo[], rnd: () => number) {
     }
   }
 
-  // 8. Corso envejeciendo en Sears
+  // 8. Corso sin rotar en Sears
   for (const c of busca(
     (c) => c.coleccion.id === "COR" && c.sucursal.cadenaId === "SEA"
   )) {

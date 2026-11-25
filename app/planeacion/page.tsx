@@ -137,7 +137,7 @@ export default function Planeacion() {
           k="Caja liberada"
           v={moneyCorto(p.cajaLiberada)}
           tono="accent"
-          n="Menos días de inventario y liquidación"
+          n="Por bajar los días de inventario objetivo"
         />
         <Tile
           k="Inventario promedio"
@@ -406,7 +406,7 @@ export default function Planeacion() {
       </div>
       <Descarga
         titulo="El escenario en Excel"
-        contenido="El modelo del plan sobre sell-in, en fórmulas: los diez supuestos son celdas vivas y recalculan piezas por mes, P&L por trimestre y EBITDA."
+        contenido="El modelo del plan sobre sell-in, en fórmulas: los nueve supuestos son celdas vivas y recalculan piezas por mes, P&L por trimestre y EBITDA."
         armar={() => libroEscenario(alcanceLibro, activo, escenarios)}
       />
     </div>

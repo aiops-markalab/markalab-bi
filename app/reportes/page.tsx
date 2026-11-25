@@ -276,7 +276,7 @@ export default function Reportes() {
       </div>
       <Descarga
         titulo="Este reporte en Excel"
-        contenido="La tabla tal como está en pantalla, con sus indicadores y su gráfica. El simulador trae el corte completo con palancas sobre el sell-in: crecimiento, precio, umbral y liquidación."
+        contenido="La tabla tal como está en pantalla, con sus indicadores y su gráfica. El simulador trae el corte completo con palancas sobre el sell-in: crecimiento, precio y umbral."
         armar={() => libroReporte(base, r, cfg, plantilla)}
         extra={
           <>

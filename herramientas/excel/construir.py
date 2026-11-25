@@ -221,8 +221,7 @@ def mapa():
     b.seccion(f, "Supuestos  ·  las celdas azules se mueven", "B", "F")
     b.seccion(f, "Lo que resulta", "H", "M")
     u = b.supuesto(f + 1, "umbral", "Umbral de cobertura", 12, SEM)
-    desc = b.supuesto(f + 2, "descuento", "Descuento al liquidar el excedente", 0.35, "0%")
-    tasa = b.supuesto(f + 3, "tasa", "Tasa financiera anual del inventario", 0.18, "0%")
+    tasa = b.supuesto(f + 2, "tasa", "Tasa financiera anual del inventario", 0.18, "0%")
     ah, an = f_alerta(u), f_alerta(u, True)
     b.tb[b.celdas["alertasAntes"][1]] = f"=SUMPRODUCT({an})"
     b.tb[b.celdas["alertasHoy"][1]] = f"=SUMPRODUCT({ah})"
@@ -234,9 +233,8 @@ def mapa():
     b.resultado(f + 2, "capitalCambio", "Cambio de capital contra el corte anterior", f"={T(b, 'capital')}-{ca}", MILLONES, fuerte=True)
     b.resultado(f + 3, "excAnt", "Piezas sobre el umbral en el corte anterior", f"=SUMPRODUCT({f_exc(u, True)})", NUM)
     b.resultado(f + 4, "perdidaAnt", "Venta perdida semanal en el corte anterior", f"=SUMPRODUCT({f_perdida(True)})", MILLONES)
-    lib = b.resultado(f + 5, "liberado", "Caja que se libera al liquidar el excedente", f"={T(b, 'capital')}*(1-{desc})", MILLONES)
-    b.resultado(f + 6, "ahorro", "Ahorro financiero anual", f"={lib}*{tasa}", MILLONES)
-    b.resultado(f + 7, "perdidaAnual", "Venta perdida si el quiebre dura un año", f"={T(b, 'perdida')}*52", MILLONES)
+    b.resultado(f + 5, "financiero", "Costo financiero anual del capital inmovilizado", f"={T(b, 'capital')}*{tasa}", MILLONES)
+    b.resultado(f + 6, "perdidaAnual", "Venta perdida si el quiebre dura un año", f"={T(b, 'perdida')}*52", MILLONES)
     b.leyenda(f + 9, "Una alerta es una combinación de tienda y modelo en quiebre o sobre el umbral. Los dos cortes "
                      "se clasifican con la misma regla; la hoja Cambio de corte lista una por una las que se "
                      "resolvieron, las nuevas y las que siguen.")
@@ -338,8 +336,8 @@ def mapa():
 # ===========================================================================
 def ejecucion():
     b = Libro("ejecucion", "ejecucion.xlsx", "Qué atender",
-              "Las decisiones de la semana, en piezas y en pesos: qué no resurtir, qué resurtir y qué liquidar. "
-              "El umbral, los días objetivo y el descuento son celdas vivas.")
+              "Las decisiones de la semana, en piezas y en pesos: qué no resurtir y qué resurtir. "
+              "El umbral y los días objetivo son celdas vivas.")
     b.kpi("sobre", "No resurtir", "=0", NUM, "Combinaciones sobre el umbral", ROJO)
     b.kpi("exc", "Piezas sobre el umbral", "=0", NUM, "Lo que sobra en esas combinaciones", ROJO)
     b.kpi("capital", "Capital parado", "=0", MILLONES, "Esas piezas, al precio de venta a la cadena", ROJO)
@@ -349,8 +347,6 @@ def ejecucion():
     b.kpi("resurtir", "Piezas a resurtir", "=0", NUM, "Para llegar a los días objetivo", VERDE)
     b.kpi("resurtirMonto", "Resurtido sugerido $", "=0", MILLONES, "Sell-in que representa ese resurtido", VERDE)
     b.kpi("transito", "Tránsito hacia saturadas", "=0", NUM, "Piezas en camino a combinaciones sobre el umbral")
-    b.kpi("viejas", "Piezas por liquidar", "=0", NUM, "Con más antigüedad que el límite")
-    b.kpi("viejasCosto", "Valor de esas piezas", "=0", MILLONES, "Al precio de venta a la cadena")
     b.kpi("inaccion", "Costo de no hacer nada", "=0", MILLONES, "Un mes más como está", ROJO)
 
     f = b.fila_libre() + 1
@@ -359,27 +355,20 @@ def ejecucion():
     u = b.supuesto(f + 1, "umbral", "Umbral de cobertura", 12, SEM)
     dias = b.supuesto(f + 2, "dias", "Días de inventario objetivo al resurtir", 56, '0" días"')
     tasa = b.supuesto(f + 3, "tasa", "Tasa financiera anual del inventario", 0.18, "0%")
-    edad = b.supuesto(f + 4, "edad", "Antigüedad para liquidar", 360, '0" días"')
-    desc = b.supuesto(f + 5, "descuento", "Descuento de liquidación", 0.35, "0%")
 
     sug = (f"ROUND({R('Sell-out semanal')}*{dias}/7,0)-{R('Piezas')}-{R('Tránsito')}")
-    viejo = f"({R('Días en canal')}>{edad})*{R('Piezas')}"
     b.tb[b.celdas["sobre"][1]] = f"=SUMPRODUCT({f_sobre(u)})"
     b.tb[b.celdas["exc"][1]] = f"=SUMPRODUCT({f_exc(u)})"
     b.tb[b.celdas["capital"][1]] = f"=ROUND(SUMPRODUCT({f_exc(u)}*{R('Costo')}),0)"
     b.tb[b.celdas["resurtir"][1]] = f"=SUMPRODUCT(({R('Reporta')}=1)*(({sug})>0)*({sug}))"
     b.tb[b.celdas["resurtirMonto"][1]] = f"=SUMPRODUCT(({R('Reporta')}=1)*(({sug})>0)*({sug})*{R('Costo')})"
     b.tb[b.celdas["transito"][1]] = f"=SUMPRODUCT({f_sobre(u)}*{R('Tránsito')})"
-    b.tb[b.celdas["viejas"][1]] = f"=SUMPRODUCT({viejo})"
-    b.tb[b.celdas["viejasCosto"][1]] = f"=SUMPRODUCT({viejo}*{R('Costo')})"
     b.tb[b.celdas["inaccion"][1]] = f"={T(b, 'perdida')}*4.3+{T(b, 'capital')}*{tasa}/12"
 
     b.resultado(f + 1, "transitoMonto", "Valor del tránsito hacia combinaciones sobre el umbral",
                 f"=SUMPRODUCT({f_sobre(u)}*{R('Tránsito')}*{R('Costo')})", MILLONES)
     b.resultado(f + 2, "financiero", "Costo financiero anual del capital parado", f"={T(b, 'capital')}*{tasa}", MILLONES)
     b.resultado(f + 3, "perdidaAnual", "Venta perdida si los quiebres duran un año", f"={T(b, 'perdida')}*52", MILLONES)
-    b.resultado(f + 4, "viejasCaja", "Caja que entra al liquidar el inventario viejo",
-                f"={T(b, 'viejasCosto')}*(1-{desc})", MILLONES, fuerte=True)
     b.leyenda(f + 7, "No resurtir no es un castigo a la tienda: es no mandar más piezas a donde ya sobran. Mover "
                      "mercancía entre tiendas lo decide cada cadena; aquí solo está lo que la marca sí controla.")
 
@@ -407,16 +396,6 @@ def ejecucion():
         b.fx(rs, "L", r, f"={g}$K{r}*$I{r})")
         b.fx(rs, "M", r, f"={g}IF(AND($E{r}=0,$G{r}>0.15),$G{r},0))")
         b.fx(rs, "N", r, f"={g}$M{r}*$H{r})")
-
-    lq = b.hoja("Liquidar", [
-        ("Punto de venta", 30), ("Cadena", 20), ("SKU", 13), ("Modelo", 30), ("Piezas", 9), ("Días en canal", 11),
-        ("Costo", 11), ("Valor $", 14), ("Caja al liquidar", 14), ("¿Rebasa el límite?", 13),
-    ], {5: NUM, 6: NUM, 7: DINERO, 8: DINERO, 9: DINERO}, sobrantes="quitar")
-    for r in range(2, 302):
-        g = guarda(r)
-        b.fx(lq, "H", r, f"={g}$E{r}*$G{r})")
-        b.fx(lq, "I", r, f"={g}$H{r}*(1-{desc}))")
-        b.fx(lq, "J", r, f'={g}IF($F{r}>{edad},"Sí","No"))')
 
     co = b.hoja("Colecciones", [
         ("Colección", 20), ("Venta perdida (pzas/sem)", 14), ("Venta perdida $/sem", 16), ("Piezas sobre umbral", 13),
@@ -556,7 +535,7 @@ def corte():
     b = Libro("corte", "simulador.xlsx", "Simulador del corte",
               "El corte completo con sus palancas. Todo lo que se simula es sell-in: lo que la marca le vende a las "
               "cadenas. El sell-out aparece solo como lo que cada cadena ya vendió. Mueve el crecimiento, el precio, "
-              "el umbral o la liquidación y mira qué les pasa a las piezas y a los pesos.")
+              "o el umbral y mira qué les pasa a las piezas y a los pesos.")
     b.kpi("sellin", "Sell-in simulado", "=0", NUM, "Piezas, con el crecimiento que pusiste")
     b.kpi("sellinMonto", "Sell-in simulado $", "=0", MILLONES, "Con el crecimiento y el precio que pusiste")
     b.kpi("sellout", "Sell-out del periodo", f"=SUM({R('Sell-out periodo')})", NUM, "Piezas que las cadenas ya vendieron")
@@ -564,9 +543,6 @@ def corte():
     b.kpi("indice", "Índice de desplazamiento", "=0", PORC, "Sell-out entre sell-in simulado, en piezas")
     b.kpi("exc", "Piezas sobre el umbral", "=0", NUM, "Existencia que rebasa la cobertura objetivo", ROJO)
     b.kpi("capital", "Capital inmovilizado", "=0", MILLONES, "Esas piezas, al precio de venta a la cadena", ROJO)
-    b.kpi("liqPzas", "Piezas que se liquidan", "=0", NUM, "La parte del excedente que decidiste liquidar")
-    b.kpi("liberado", "Caja por liquidar", "=0", MILLONES, "Lo que entra, ya con el descuento", VERDE)
-    b.kpi("castigo", "Descuento concedido", "=0", MILLONES, "Lo que cuesta liquidar")
     b.kpi("perdidaPzas", "Venta perdida, piezas", f"=SUMPRODUCT({f_perdida_pzas()})", DEC, "Por semana, por quiebres", ROJO)
     b.kpi("perdida", "Venta perdida semanal $", f"=SUMPRODUCT({f_perdida()})", MILLONES, "Esas piezas, a precio de lista", ROJO)
 
@@ -576,8 +552,6 @@ def corte():
     crec = b.supuesto(f + 1, "crecimiento", "Crecimiento del sell-in en piezas", 0, "+0.0%;-0.0%;0.0%")
     prec = b.supuesto(f + 2, "precio", "Cambio del precio de venta a la cadena", 0, "+0.0%;-0.0%;0.0%")
     u = b.supuesto(f + 3, "umbral", "Umbral de cobertura", 12, SEM)
-    liq = b.supuesto(f + 4, "liquidacion", "Parte del excedente que se liquida", 0, "0%")
-    desc = b.supuesto(f + 5, "descuento", "Descuento de liquidación", 0.35, "0%")
 
     si_p, si_m = R("Sell-in periodo"), R("Sell-in periodo $")
     so_p, so_m = R("Sell-out periodo"), R("Sell-out periodo $")
@@ -589,18 +563,12 @@ def corte():
     b.resultado(f + 6, "difMonto", "Diferencia contra el periodo ($)", f"={m1}-{m0}", DINERO)
     x = b.resultado(f + 7, "excR", "Piezas sobre el umbral", f"=SUMPRODUCT({f_exc(u)})", NUM)
     k = b.resultado(f + 8, "capitalR", "Capital inmovilizado sobre el umbral", f"=ROUND(SUMPRODUCT({f_exc(u)}*{R('Costo')}),0)", DINERO)
-    lp = b.resultado(f + 9, "liqPzasR", "Piezas que se liquidan", f"={x}*{liq}", NUM)
-    lb = b.resultado(f + 10, "liberadoR", "Caja que entra al liquidar", f"={k}*{liq}*(1-{desc})", DINERO)
-    cs = b.resultado(f + 11, "castigoR", "Descuento concedido al liquidar", f"={k}*{liq}*{desc}", DINERO)
 
     b.tb[b.celdas["sellin"][1]] = f"={p1}"
     b.tb[b.celdas["sellinMonto"][1]] = f"={m1}"
     b.tb[b.celdas["indice"][1]] = f"=IF({p1}=0,0,{T(b, 'sellout')}/{p1})"
     b.tb[b.celdas["exc"][1]] = f"={x}"
     b.tb[b.celdas["capital"][1]] = f"={k}"
-    b.tb[b.celdas["liqPzas"][1]] = f"={lp}"
-    b.tb[b.celdas["liberado"][1]] = f"={lb}"
-    b.tb[b.celdas["castigo"][1]] = f"={cs}"
 
     def tabla(nombre, titulo, columna, filas):
         ws = b.hoja(nombre, [
@@ -623,7 +591,7 @@ def corte():
     cad = tabla("Cadenas", "Cadena", "Cadena", 8)
     col = tabla("Colecciones", "Colección", "Colección", 12)
 
-    g0 = f + 13
+    g0 = f + 10
     b.seccion(g0, "El efecto de tus supuestos")
     b.barras(b.tb, f"B{g0 + 1}", "Sell-in simulado contra sell-out, por cadena (piezas)",
              Reference(cad, min_col=2, max_col=3, min_row=1, max_row=9), Reference(cad, min_col=1, min_row=2, max_row=9),
@@ -641,17 +609,17 @@ def corte():
 def escenario():
     b = Libro("escenario", "escenario.xlsx", "Escenario y estado de resultados",
               "El modelo del plan, completo y en fórmulas, sobre sell-in: lo que la marca le vende a las cadenas. Los "
-              "diez supuestos de la pantalla son las celdas azules. Muévelos y se recalculan las piezas por mes, el "
+              "nueve supuestos de la pantalla son las celdas azules. Muévelos y se recalculan las piezas por mes, el "
               "estado de resultados por trimestre y el EBITDA. El sell-out va aparte, en la hoja Lo ya vendido.")
     b.kpi("ingreso", "Sell-in proyectado $", "=Meses!$N$4", MILLONES, "Doce meses, a precio de venta a la cadena")
     b.kpi("unidades", "Sell-in proyectado", "=Meses!$N$9", NUM, "Piezas, doce meses")
     b.kpi("margen", "Margen sobre sell-in", "=Meses!$N$6", MILLONES, "Sell-in menos costo del producto")
     b.kpi("margenPct", "Margen %", "=IF(Meses!$N$4=0,0,Meses!$N$6/Meses!$N$4)", PORC, "Sobre el sell-in")
-    b.kpi("ebitda", "EBITDA", "=Meses!$N$8", MILLONES, "Después de gasto, inventario y liquidación", VERDE)
+    b.kpi("ebitda", "EBITDA", "=Meses!$N$8", MILLONES, "Después de gasto e inventario", VERDE)
     b.kpi("ebitdaPct", "EBITDA %", "=IF(Meses!$N$4=0,0,Meses!$N$8/Meses!$N$4)", PORC, "Sobre el sell-in", VERDE)
     b.kpi("recuperadoPzas", "Quiebres que se cierran", "=0", NUM, "Piezas de sell-in que se recuperan")
     b.kpi("recuperado", "Quiebres que se cierran $", "=0", MILLONES, "Esas piezas, a precio de venta a la cadena")
-    b.kpi("caja", "Caja liberada", "=0", MILLONES, "Por bajar días de inventario y liquidar")
+    b.kpi("caja", "Caja liberada", "=0", MILLONES, "Por bajar los días de inventario objetivo")
 
     f = b.fila_libre() + 1
     b.seccion(f, "Supuestos del escenario  ·  las celdas azules se mueven", "B", "F")
@@ -663,9 +631,8 @@ def escenario():
     serv = b.supuesto(f + 5, "servicio", "Nivel de servicio: quiebres que se cierran", 0, "0%")
     mkt = b.supuesto(f + 1, "mercadotecnia", "Inversión en mercadotecnia", 28, '"$"0.0" M"', col="H")
     dias = b.supuesto(f + 2, "dias", "Días de inventario objetivo", 56, '0" días"', col="H")
-    liq = b.supuesto(f + 3, "liquidacion", "Liquidación del envejecido", 0, "0%", col="H")
-    fijo = b.supuesto(f + 4, "gastoFijo", "Gasto operativo fijo", 98, '"$"0.0" M"', col="H")
-    var = b.supuesto(f + 5, "gastoVariable", "Gasto variable sobre ingreso", 0.095, "0.0%", col="H")
+    fijo = b.supuesto(f + 3, "gastoFijo", "Gasto operativo fijo", 98, '"$"0.0" M"', col="H")
+    var = b.supuesto(f + 4, "gastoVariable", "Gasto variable sobre ingreso", 0.095, "0.0%", col="H")
 
     h = f + 7
     b.seccion(h, "Lo que viene del corte  ·  no se mueve aquí", "B", "F")
@@ -683,15 +650,14 @@ def escenario():
 
     fac = b.resultado(h + 1, "factor", "Factor de volumen que aplican los supuestos",
                       f"=(1+{crec})*(1+{prec})^(-{elas})*IF({mkt}<=0,0.94,1+0.085*LN({mkt}/MAX(1,{bmk})))"
-                      f"*IF({dias}<35,1-(35-{dias})*0.006,1)*(1+{liq}*0.14)", "0.000")
+                      f"*IF({dias}<35,1-(35-{dias})*0.006,1)", "0.000")
     cinv = b.resultado(h + 2, "costoInv", "Costo financiero del inventario", f"=Meses!$N$5/365*{dias}*0.18", MILLONES)
-    pliq = b.resultado(h + 3, "perdLiq", "Castigo de margen por liquidar", f"={capp}*{liq}*0.45", MILLONES)
     rec = T(b, "recuperado")
     rpz = T(b, "recuperadoPzas")
     # Lo que se recupera es sell-in: las piezas perdidas, al precio de venta a la cadena.
     b.tb[b.celdas["recuperado"][1]] = f"={per}*52*{serv}*(1-{mc})"
     b.tb[b.celdas["recuperadoPzas"][1]] = f"={pzs}*52*{serv}"
-    b.tb[b.celdas["caja"][1]] = f"=Meses!$N$5/365*({bdi}-{dias})+{capp}*{liq}"
+    b.tb[b.celdas["caja"][1]] = f"=Meses!$N$5/365*({bdi}-{dias})"
 
     # --- el modelo, colección por colección y mes por mes -------------------
     mo = b.hoja("Modelo", [
@@ -730,7 +696,7 @@ def escenario():
         b.fx(me, c, 4, f"={guarda(4)}{c}2+{c}3)")
         b.fx(me, c, 5, f'={guarda(5)}SUMPRODUCT(Modelo!{m}$2:{m}$13,Modelo!$H$2:$H$13)+{c}3*(1-{mm}))')
         b.fx(me, c, 6, f"={guarda(6)}{c}4-{c}5)")
-        b.fx(me, c, 7, f"={guarda(7)}{fijo}*1000000/12+{c}4*{var}+{mkt}*1000000/12+{cinv}/12+{pliq}/12)")
+        b.fx(me, c, 7, f"={guarda(7)}{fijo}*1000000/12+{c}4*{var}+{mkt}*1000000/12+{cinv}/12)")
         b.fx(me, c, 8, f"={guarda(8)}{c}6-{c}7)")
         b.fx(me, c, 9, f"={guarda(9)}SUM(Modelo!{m}$2:{m}$13)+{rpz}*{peso})")
         me[f"{c}9"].number_format = NUM
@@ -749,7 +715,7 @@ def escenario():
         b.fx(rs, c, 5, f"={guarda(5)}{fijo}*1000000/4)")
         b.fx(rs, c, 6, f"={guarda(6)}{c}2*{var})")
         b.fx(rs, c, 7, f"={guarda(7)}{mkt}*1000000/4)")
-        b.fx(rs, c, 8, f"={guarda(8)}({cinv}+{pliq})/4)")
+        b.fx(rs, c, 8, f"={guarda(8)}{cinv}/4)")
         b.fx(rs, c, 9, f"={guarda(9)}SUM({c}5:{c}8))")
         b.fx(rs, c, 10, f"={guarda(10)}{c}4-{c}9)")
         b.fx(rs, c, 11, f"={guarda(11)}SUM(Meses!{a}$9:{z}$9))")
@@ -878,7 +844,7 @@ def hallazgos():
     H = lambda col: f"Hallazgos!${col}$2:${col}$41"
     b.kpi("total", "Hallazgos", f"=COUNTA({H('C')})", NUM, "En el corte y con los filtros puestos")
     b.kpi("criticos", "Críticos", f'=COUNTIF({H("B")},"Crítica")', NUM, "Para atender esta semana", ROJO)
-    b.kpi("liberable", "Capital liberable", f'=SUMIF({H("I")},"liberable",{H("H")})', MILLONES, "Dejando de resurtir y liquidando")
+    b.kpi("liberable", "Capital liberable", f'=SUMIF({H("I")},"liberable",{H("H")})', MILLONES, "Dejando de resurtir donde ya sobra")
     b.kpi("recuperable", "Venta recuperable", f'=SUMIF({H("I")},"recuperable",{H("H")})', MILLONES, "Cerrando quiebres con resurtido", VERDE)
     b.kpi("riesgo", "En riesgo", f'=SUMIF({H("I")},"en riesgo",{H("H")})', MILLONES, "Si no se actúa", ROJO)
     b.kpi("valor", "Valor total", f"=SUM({H('H')})", MILLONES, "Suma del impacto de los hallazgos")

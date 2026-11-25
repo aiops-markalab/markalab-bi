@@ -32,8 +32,6 @@ import { enHoja, enHojaPeriodo, filasExcel, r4, type Celda, type Paquete } from 
 export type Base = { vista: Combo[]; data: Dataset; ind: Indicadores; filtro: Filtro };
 
 const TASA = PARAMS.costoCapitalAnual;
-const DESCUENTO = 0.35;
-const EDAD = 360;
 
 /** El periodo que está puesto en la plataforma: el libro baja con el mismo. */
 const periodoDeBase = (b: Base): Periodo => periodoDe(b.filtro);
@@ -234,7 +232,6 @@ export function libroMapa(b: Base): Paquete {
     valores: {
       subtitulo: subtitulo(b, `Contra el corte ${CORTE_ANTERIOR.etiqueta} (${CORTE_ANTERIOR.rango})`),
       umbral: filtro.umbral,
-      descuento: DESCUENTO,
       tasa: TASA,
       estados: estados.length,
       alerta: estados.filter((e) => e.clase !== "sano").length,
@@ -252,8 +249,7 @@ export function libroMapa(b: Base): Paquete {
       capitalCambio: capital - cc.antes.capital,
       excAnt: cc.antes.excedente,
       perdidaAnt: cc.antes.perdida,
-      liberado: capital * (1 - DESCUENTO),
-      ahorro: capital * (1 - DESCUENTO) * TASA,
+      financiero: capital * TASA,
       perdidaAnual: ind.perdida * 52,
     },
   };
@@ -266,7 +262,6 @@ export function libroEjecucion(b: Base): Paquete {
   const { vista, ind, filtro } = b;
   const u = filtro.umbral;
   const sobre = vista.filter(esSobre);
-  const viejos = vista.filter((c) => c.edad > EDAD && c.inv > 0);
   const base = (c: Combo): Celda[] => [c.sucursal.nombre, cadenaPorId(c.sucursal.cadenaId).nombre, c.modelo.sku, c.modelo.nombre];
 
   const noResurtir = [...sobre].sort((x, y) => y.capital - x.capital).slice(0, 300)
@@ -278,26 +273,22 @@ export function libroEjecucion(b: Base): Paquete {
       return [...base(c), c.inv, c.tr, r4(c.so), c.precio, c.costo, c.objetivo, c.sug, c.sug * c.costo, pz, pz * c.precio] as Celda[];
     });
 
-  const liquidar = [...viejos].sort((x, y) => y.inv * y.costo - x.inv * x.costo).slice(0, 300)
-    .map((c) => [...base(c), c.inv, c.edad, c.costo, c.inv * c.costo, c.inv * c.costo * (1 - DESCUENTO), "Sí"] as Celda[]);
-
   const colecciones = [...agrupar(vista, (c) => c.coleccion.nombre)]
     .map(([n, cs]) => [n, suma(cs, perdidaPzas), suma(cs.filter(esQuiebre), (c) => c.perdida), suma(cs, (c) => c.exc),
       Math.round(suma(cs, (c) => c.capital)), cs.filter(esQuiebre).length, cs.filter(esSobre).length] as Celda[])
     .sort((x, y) => (y[2] as number) - (x[2] as number));
 
   const capital = Math.round(ind.capital);
-  const viejasCosto = suma(viejos, (c) => c.inv * c.costo);
   return {
     plantilla: "ejecucion",
     sufijo: sufijo(b),
     hojas: {
       Datos: filasExcel(vista, periodoDeBase(b)), "No resurtir": noResurtir, Resurtir: resurtir,
-      Liquidar: liquidar, Colecciones: colecciones,
+      Colecciones: colecciones,
     },
     valores: {
       subtitulo: subtitulo(b),
-      umbral: u, dias: PARAMS.diasObjetivo, tasa: TASA, edad: EDAD, descuento: DESCUENTO,
+      umbral: u, dias: PARAMS.diasObjetivo, tasa: TASA,
       sobre: sobre.length,
       exc: ind.excedente,
       capital,
@@ -307,13 +298,10 @@ export function libroEjecucion(b: Base): Paquete {
       resurtir: suma(vista, (c) => c.sug),
       resurtirMonto: suma(vista, (c) => c.sug * c.costo),
       transito: suma(sobre, (c) => c.tr),
-      viejas: suma(viejos, (c) => c.inv),
-      viejasCosto,
       inaccion: ind.perdida * 4.3 + (capital * TASA) / 12,
       transitoMonto: suma(sobre, (c) => c.tr * c.costo),
       financiero: capital * TASA,
       perdidaAnual: ind.perdida * 52,
-      viejasCaja: viejasCosto * (1 - DESCUENTO),
     },
   };
 }
@@ -424,13 +412,13 @@ export function libroSimulador(b: Base): Paquete {
     },
     valores: {
       subtitulo: subtitulo(b),
-      crecimiento: 0, precio: 0, umbral: filtro.umbral, liquidacion: 0, descuento: DESCUENTO,
+      crecimiento: 0, precio: 0, umbral: filtro.umbral,
       sellin: t.inP, sellinMonto: t.inM, sellout: t.outP, selloutMonto: t.outM,
       indice: t.inP ? t.outP / t.inP : 0,
-      exc: ind.excedente, capital, liqPzas: 0, liberado: 0, castigo: 0,
+      exc: ind.excedente, capital,
       perdidaPzas: suma(vista, perdidaPzas), perdida: ind.perdida,
       sellinBase: t.inP, sellinBaseMonto: t.inM, sellinR: t.inP, sellinMontoR: t.inM, difPzas: 0, difMonto: 0,
-      excR: ind.excedente, capitalR: capital, liqPzasR: 0, liberadoR: 0, castigoR: 0,
+      excR: ind.excedente, capitalR: capital,
     },
   };
 }
@@ -486,7 +474,7 @@ export function libroEscenario(b: Base, activo: Escenario, todos: Escenario[]): 
   const resultados = [
     conAnual("Ingreso por sell-in", ing), conAnual("Costo del producto", cst), conAnual("Margen sobre sell-in", mb),
     conAnual("Gasto fijo de operación", fijo), conAnual("Gasto variable", vari), conAnual("Mercadotecnia", mkt),
-    conAnual("Costo financiero del inventario y liquidación", fin), conAnual("Gasto operativo total", gasto),
+    conAnual("Costo financiero del inventario", fin), conAnual("Gasto operativo total", gasto),
     conAnual("EBITDA", eb), conAnual("Piezas de sell-in", pzs),
   ];
   const trimestres = [0, 1, 2, 3].map((q) => [`T${q + 1}`, ing[q], eb[q], pzs[q]] as Celda[]);
@@ -501,11 +489,10 @@ export function libroEscenario(b: Base, activo: Escenario, todos: Escenario[]): 
   const vendido = porCadena(vista, periodoDeBase(b))
     .map((c) => [c.nombre, c.outPzas, c.inPzas, c.outMonto, c.inMonto, c.inPzas - c.outPzas, c.inPzas ? c.outPzas / c.inPzas : 0] as Celda[]);
 
-  const liq = s.liquidacion / 100;
   const factor =
     (1 + s.crecimiento / 100) * Math.pow(1 + s.precio / 100, -s.elasticidad) *
     (s.mercadotecnia <= 0 ? 0.94 : 1 + 0.085 * Math.log(s.mercadotecnia / Math.max(1, ref.mercadotecnia))) *
-    (s.diasObjetivo < 35 ? 1 - (35 - s.diasObjetivo) * 0.006 : 1) * (1 + liq * 0.14);
+    (s.diasObjetivo < 35 ? 1 - (35 - s.diasObjetivo) * 0.006 : 1);
 
   return {
     plantilla: "escenario",
@@ -517,7 +504,7 @@ export function libroEscenario(b: Base, activo: Escenario, todos: Escenario[]): 
     valores: {
       subtitulo: subtitulo(b, `Escenario: ${activo.nombre}`),
       crecimiento: s.crecimiento / 100, precio: s.precio / 100, costo: s.costo / 100, elasticidad: s.elasticidad,
-      servicio: s.servicio / 100, mercadotecnia: s.mercadotecnia, dias: s.diasObjetivo, liquidacion: liq,
+      servicio: s.servicio / 100, mercadotecnia: s.mercadotecnia, dias: s.diasObjetivo,
       gastoFijo: s.gastoFijo, gastoVariable: s.gastoVariable / 100,
       perdidaSem: ind.perdida, perdidaPzasSem: ind.perdidaPzas, capitalParado: ind.capital,
       baseMkt: ref.mercadotecnia, baseDias: ref.diasObjetivo, margenMarca: MARGEN_MARCA, margenCadena: MARGEN_CADENA_MEDIO,
@@ -528,7 +515,6 @@ export function libroEscenario(b: Base, activo: Escenario, todos: Escenario[]): 
       recuperadoPzas: p.recuperadoPzas, recuperado: p.recuperado,
       caja: p.cajaLiberada, factor,
       costoInv: p.inventarioPromedio * 0.18,
-      perdLiq: ind.capital * liq * 0.45,
     },
   };
 }

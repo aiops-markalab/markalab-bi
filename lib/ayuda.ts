@@ -151,7 +151,7 @@ export const GUIAS: Guia[] = [
     claves: ["escenario", "supuesto", "ebitda", "planeacion", "proyeccion", "simulacion"],
     ruta: "/planeacion",
     pasos: [
-      "El plan se calcula sobre sell-in: lo que la marca le vende a las cadenas. Cada escenario tiene diez supuestos editables: crecimiento, precio, servicio, mercadotecnia, días objetivo, liquidación y el resto.",
+      "El plan se calcula sobre sell-in: lo que la marca le vende a las cadenas. Cada escenario tiene nueve supuestos editables: crecimiento, precio, costo, elasticidad, servicio, mercadotecnia, días objetivo y los dos de gasto.",
       "Al mover uno, el cambio se propaga por el modelo hasta el EBITDA, y la pantalla muestra el resultado contra el escenario base.",
       "El escenario Base está bloqueado a propósito: es la referencia contra la que se compara todo lo demás.",
       "Estado de resultados muestra el P&L trimestral del escenario activo contra el plan comprometido. El sell-out aparece aparte, como lo que cada cadena ya vendió.",
@@ -205,7 +205,7 @@ export const GUIAS: Guia[] = [
     pasos: [
       "En Reportes, el botón Simulador del corte baja un libro con el corte completo y sus palancas.",
       "La hoja Datos trae el corte completo del alcance filtrado, una línea por tienda y modelo, con filtros puestos en los encabezados. Desde ahí se puede insertar una tabla dinámica de Excel en dos clics.",
-      "La hoja Tablero tiene cinco celdas azules: crecimiento del sell-in, cambio de precio, umbral de cobertura, parte del excedente que se liquida y descuento. Al cambiarlas, el sell-in simulado, las piezas sobre el umbral y el capital inmovilizado se recalculan solos.",
+      "La hoja Tablero tiene tres celdas azules: crecimiento del sell-in, cambio de precio y umbral de cobertura. Al cambiarlas, el sell-in simulado, las piezas sobre el umbral y el capital inmovilizado se recalculan solos.",
       "Las hojas Cadenas y Colecciones traen el sell-in y el sell-out, en piezas y en monto, con dos gráficas que siguen a esas tablas.",
       "Todo lo de abajo son fórmulas de Excel, no valores pegados: si alguien cambia un dato de la hoja Datos, el resto se ajusta.",
       "El umbral del simulador hace lo mismo que el de la plataforma: a 8 semanas sale más excedente, a 16 menos.",
@@ -233,6 +233,20 @@ export type Novedad = {
 };
 
 export const NOVEDADES: Novedad[] = [
+  {
+    fecha: "2026-11-25",
+    tipo: "Corrección",
+    titulo: "Sin liquidación",
+    cuerpo:
+      "La marca no mueve ni remata lo que ya está en las tiendas: es inventario de la cadena. Por eso salen el indicador y la pestaña Liquidar de Ejecución, el supuesto de liquidación de los escenarios y del Excel, y su parte en la caja liberada y en el capital liberable. Quedan dos decisiones: no resurtir y resurtir.",
+  },
+  {
+    fecha: "2026-11-25",
+    tipo: "Corrección",
+    titulo: "Quiebre que todavía no pierde venta",
+    cuerpo:
+      "En la lista Resurtir, una tienda en quiebre que aún tiene piezas ya no dice venta perdida de N piezas y $0: dice cuántas le quedan y que todavía no pierde venta.",
+  },
   {
     fecha: "2026-11-20",
     tipo: "Novedad",

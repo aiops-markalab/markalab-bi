@@ -8,7 +8,7 @@ import { Tile, Chip, Mono, Accion, Tabla, type Col } from "@/components/ui";
 import { Sparkline, Barras } from "@/components/charts";
 import { fmt, money, moneyCorto, PARAMS, type Combo } from "@/lib/engine";
 
-type Pestana = "todo" | "noresurtir" | "resurtir" | "liquidar";
+type Pestana = "todo" | "noresurtir" | "resurtir";
 
 export default function Ejecucion() {
   const { vista, filtro } = useBI();
@@ -20,10 +20,6 @@ export default function Ejecucion() {
     [vista]
   );
   const quiebres = useMemo(() => vista.filter((c) => c.clase === "quiebre"), [vista]);
-  const viejos = useMemo(
-    () => vista.filter((c) => c.edad > 360 && c.inv > 0),
-    [vista]
-  );
 
   const capital = sobre.reduce((a, c) => a + c.capital, 0);
   const excedente = sobre.reduce((a, c) => a + c.exc, 0);
@@ -31,8 +27,6 @@ export default function Ejecucion() {
   const perdidaPzas = quiebres.reduce((a, c) => a + (c.perdida > 0 ? c.so : 0), 0);
   const sugerido = quiebres.reduce((a, c) => a + c.sug, 0);
   const sugeridoMonto = quiebres.reduce((a, c) => a + c.sug * c.costo, 0);
-  const viejasPzas = viejos.reduce((a, c) => a + c.inv, 0);
-  const viejasMonto = viejos.reduce((a, c) => a + c.inv * c.costo, 0);
 
   const porColeccion = useMemo(() => {
     const m = new Map<string, { n: string; perdida: number; pzas: number; sug: number; quiebres: number }>();
@@ -72,7 +66,7 @@ export default function Ejecucion() {
       }));
   }, [quiebres]);
 
-  const colsCombo = (modo: "sat" | "qui" | "vie"): Col<Combo>[] => [
+  const colsCombo = (modo: "sat" | "qui"): Col<Combo>[] => [
     {
       t: "Sucursal",
       cls: "name",
@@ -108,21 +102,12 @@ export default function Ejecucion() {
           { t: "Capital parado", n: true, f: (c: Combo) => moneyCorto(c.capital) },
           { t: "Tránsito (pzas)", n: true, f: (c: Combo) => fmt(c.tr) },
         ] as Col<Combo>[])
-      : modo === "qui"
-        ? ([
-            { t: "Tránsito (pzas)", n: true, f: (c: Combo) => fmt(c.tr) },
-            { t: "Sugerido (pzas)", n: true, f: (c: Combo) => <strong>{fmt(c.sug)}</strong> },
-            { t: "Sugerido en sell-in", n: true, f: (c: Combo) => moneyCorto(c.sug * c.costo) },
-            { t: "Venta perdida/sem", n: true, f: (c: Combo) => money(c.perdida) },
-          ] as Col<Combo>[])
-        : ([
-            { t: "Días en canal", n: true, f: (c: Combo) => fmt(c.edad) },
-            {
-              t: "Valor $",
-              n: true,
-              f: (c: Combo) => moneyCorto(c.inv * c.costo),
-            },
-          ] as Col<Combo>[])),
+      : ([
+          { t: "Tránsito (pzas)", n: true, f: (c: Combo) => fmt(c.tr) },
+          { t: "Sugerido (pzas)", n: true, f: (c: Combo) => <strong>{fmt(c.sug)}</strong> },
+          { t: "Sugerido en sell-in", n: true, f: (c: Combo) => moneyCorto(c.sug * c.costo) },
+          { t: "Venta perdida/sem", n: true, f: (c: Combo) => money(c.perdida) },
+        ] as Col<Combo>[])),
     { t: "Estado", f: (c) => <Chip clase={c.clase} /> },
   ];
 
@@ -130,7 +115,6 @@ export default function Ejecucion() {
     { k: "todo", t: "Resumen", n: 0 },
     { k: "noresurtir", t: "No resurtir", n: sobre.length },
     { k: "resurtir", t: "Resurtir", n: quiebres.length },
-    { k: "liquidar", t: "Liquidar", n: viejos.length },
   ];
 
   return (
@@ -156,12 +140,6 @@ export default function Ejecucion() {
           s={`${fmt(perdidaPzas)} pzas`}
           tono="flag"
           n="Lo que el consumidor no encuentra cada semana"
-        />
-        <Tile
-          k="Liquidar"
-          v={fmt(viejos.length)}
-          s={`${fmt(viejasPzas)} pzas`}
-          n={`${moneyCorto(viejasMonto)} con más de un año en la tienda`}
         />
         <Tile
           k="Costo de no hacer nada"
@@ -234,8 +212,17 @@ export default function Ejecucion() {
                 .map((c) => (
                   <li key={c.id}>
                     <b>{c.sucursal.plaza}</b> · {c.modelo.sku} — sugerido{" "}
-                    <em>{fmt(c.sug)} pzas</em> ({moneyCorto(c.sug * c.costo)}), venta perdida de{" "}
-                    <em>{fmt(c.so, 1)} pzas</em> y <em>{money(c.perdida)}</em> por semana
+                    <em>{fmt(c.sug)} pzas</em> ({moneyCorto(c.sug * c.costo)}),{" "}
+                    {c.perdida > 0 ? (
+                      <>
+                        venta perdida de <em>{fmt(c.so, 1)} pzas</em> y{" "}
+                        <em>{money(c.perdida)}</em> por semana
+                      </>
+                    ) : (
+                      <>
+                        le quedan <em>{fmt(c.inv)} pzas</em>, todavía sin venta perdida
+                      </>
+                    )}
                     {c.tr ? ` · ${c.tr} pzas en tránsito` : ""}
                   </li>
                 ))}
@@ -308,32 +295,9 @@ export default function Ejecucion() {
         </div>
       ) : null}
 
-      {tab === "liquidar" ? (
-        <div className="card">
-          <h3>Inventario con más de un año en canal</h3>
-          <p className="sub">
-            Cada semana que pasa vale menos y ocupa un espacio de anaquel que el comprador puede
-            reasignar a otra marca. Es producto de la cadena: lo que toca es acordar con ella su
-            salida.
-          </p>
-          <div className="tablewrap">
-            <Tabla
-              cols={colsCombo("vie")}
-              filas={viejos.slice().sort((a, b) => b.edad - a.edad)}
-            />
-          </div>
-          <div className="tfoot">
-            <span>
-              {fmt(viejos.length)} combinaciones · {fmt(viejasPzas)} pzas · {moneyCorto(viejasMonto)} a
-              costo
-            </span>
-          </div>
-        </div>
-      ) : null}
-
       <Descarga
         titulo="Las decisiones de la semana en Excel"
-        contenido="No resurtir, resurtir y liquidar, cada uno en su hoja, con piezas, monto y fórmulas. El umbral y los días objetivo son celdas vivas."
+        contenido="No resurtir y resurtir, cada uno en su hoja, con piezas, monto y fórmulas. El umbral y los días objetivo son celdas vivas."
         armar={() => libroEjecucion(base)}
       />
     </div>

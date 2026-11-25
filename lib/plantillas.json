@@ -58,13 +58,9 @@
     "Tablero",
     "E15"
    ],
-   "descuento": [
-    "Tablero",
-    "E16"
-   ],
    "tasa": [
     "Tablero",
-    "E17"
+    "E16"
    ],
    "capitalAnt": [
     "Tablero",
@@ -82,17 +78,13 @@
     "Tablero",
     "L18"
    ],
-   "liberado": [
+   "financiero": [
     "Tablero",
     "L19"
    ],
-   "ahorro": [
-    "Tablero",
-    "L20"
-   ],
    "perdidaAnual": [
     "Tablero",
-    "L21"
+    "L20"
    ]
   },
   "hojas": {
@@ -279,17 +271,9 @@
     "Tablero",
     "F10"
    ],
-   "viejas": [
-    "Tablero",
-    "H10"
-   ],
-   "viejasCosto": [
-    "Tablero",
-    "J10"
-   ],
    "inaccion": [
     "Tablero",
-    "L10"
+    "H10"
    ],
    "umbral": [
     "Tablero",
@@ -303,14 +287,6 @@
     "Tablero",
     "E17"
    ],
-   "edad": [
-    "Tablero",
-    "E18"
-   ],
-   "descuento": [
-    "Tablero",
-    "E19"
-   ],
    "transitoMonto": [
     "Tablero",
     "L15"
@@ -322,10 +298,6 @@
    "perdidaAnual": [
     "Tablero",
     "L17"
-   ],
-   "viejasCaja": [
-    "Tablero",
-    "L18"
    ]
   },
   "hojas": {
@@ -333,9 +305,6 @@
     "sobrantes": "quitar"
    },
    "Resurtir": {
-    "sobrantes": "quitar"
-   },
-   "Liquidar": {
     "sobrantes": "quitar"
    },
    "Colecciones": {
@@ -519,25 +488,13 @@
     "Tablero",
     "B10"
    ],
-   "liqPzas": [
+   "perdidaPzas": [
     "Tablero",
     "D10"
    ],
-   "liberado": [
-    "Tablero",
-    "F10"
-   ],
-   "castigo": [
-    "Tablero",
-    "H10"
-   ],
-   "perdidaPzas": [
-    "Tablero",
-    "J10"
-   ],
    "perdida": [
     "Tablero",
-    "L10"
+    "F10"
    ],
    "crecimiento": [
     "Tablero",
@@ -550,14 +507,6 @@
    "umbral": [
     "Tablero",
     "E17"
-   ],
-   "liquidacion": [
-    "Tablero",
-    "E18"
-   ],
-   "descuento": [
-    "Tablero",
-    "E19"
    ],
    "sellinBase": [
     "Tablero",
@@ -590,18 +539,6 @@
    "capitalR": [
     "Tablero",
     "L22"
-   ],
-   "liqPzasR": [
-    "Tablero",
-    "L23"
-   ],
-   "liberadoR": [
-    "Tablero",
-    "L24"
-   ],
-   "castigoR": [
-    "Tablero",
-    "L25"
    ]
   },
   "hojas": {
@@ -689,17 +626,13 @@
     "Tablero",
     "K16"
    ],
-   "liquidacion": [
+   "gastoFijo": [
     "Tablero",
     "K17"
    ],
-   "gastoFijo": [
-    "Tablero",
-    "K18"
-   ],
    "gastoVariable": [
     "Tablero",
-    "K19"
+    "K18"
    ],
    "perdidaSem": [
     "Tablero",
@@ -736,10 +669,6 @@
    "costoInv": [
     "Tablero",
     "L23"
-   ],
-   "perdLiq": [
-    "Tablero",
-    "L24"
    ]
   },
   "hojas": {

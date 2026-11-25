@@ -612,8 +612,18 @@ export default function Mapa() {
                     </>
                   )}{" "}
                   <span style={{ color: "var(--ink-3)" }}>({c.coleccion.nombre})</span>{" "}
-                  — sugerido <em>{fmt(c.sug)} pzas</em> ({moneyCorto(c.sug * c.costo)} de sell-in), venta
-                  perdida de <em>{fmt(c.so, 1)} pzas</em> y <em>{money(c.perdida)}</em> por semana
+                  — sugerido <em>{fmt(c.sug)} pzas</em> ({moneyCorto(c.sug * c.costo)} de sell-in),{" "}
+                  {c.perdida > 0 ? (
+                    <>
+                      venta perdida de <em>{fmt(c.so, 1)} pzas</em> y <em>{money(c.perdida)}</em> por
+                      semana
+                    </>
+                  ) : (
+                    <>
+                      le quedan <em>{fmt(c.inv)} pzas</em>: todavía no pierde venta, pero se agota
+                      antes del siguiente resurtido
+                    </>
+                  )}
                   {c.tr ? ` · ${c.tr} pzas en tránsito, verifica antes de duplicar` : ""}
                 </li>
               ))}
@@ -647,7 +657,7 @@ export default function Mapa() {
       </Drawer>
       <Descarga
         titulo="El mapa en Excel"
-        contenido="Tablero con indicadores en piezas y en monto, los estados y las sucursales clasificados con fórmula, la comparación contra el corte anterior y el corte completo. El umbral y el descuento de liquidación son celdas vivas."
+        contenido="Tablero con indicadores en piezas y en monto, los estados y las sucursales clasificados con fórmula, la comparación contra el corte anterior y el corte completo. El umbral es una celda viva."
         armar={() => libroMapa(base)}
       />
     </div>

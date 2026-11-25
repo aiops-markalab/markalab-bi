@@ -39,8 +39,6 @@ export type Supuestos = {
   mercadotecnia: number;
   /** Días de inventario objetivo en el canal. */
   diasObjetivo: number;
-  /** Descuento promedio de liquidación sobre el inventario envejecido. */
-  liquidacion: number;
   /** Gasto operativo fijo anual, en millones de pesos. */
   gastoFijo: number;
   /** Gasto operativo variable como porcentaje del ingreso. */
@@ -65,7 +63,6 @@ const BASE: Supuestos = {
   servicio: 0,
   mercadotecnia: 28,
   diasObjetivo: 56,
-  liquidacion: 0,
   gastoFijo: 98,
   gastoVariable: 9.5,
 };
@@ -101,7 +98,7 @@ export const ESCENARIOS_BASE: Escenario[] = [
     id: "corregido",
     nombre: "Canal corregido",
     descripcion:
-      "Lo que pasa si se ataca la saturación: menos días de inventario objetivo, liquidación del producto envejecido y mejor servicio en las plazas que sí venden. Mismo crecimiento que el plan; lo que cambia es la ejecución.",
+      "Lo que pasa si se ataca la saturación: menos días de inventario objetivo, dejar de resurtir donde ya sobra y mejor servicio en las plazas que sí venden. Mismo crecimiento que el plan; lo que cambia es la ejecución.",
     color: "var(--s4)",
     bloqueado: false,
     supuestos: {
@@ -112,7 +109,6 @@ export const ESCENARIOS_BASE: Escenario[] = [
       servicio: 45,
       mercadotecnia: 30,
       diasObjetivo: 44,
-      liquidacion: 10,
     },
   },
   {
@@ -214,15 +210,6 @@ export const CAMPOS_SUPUESTO: {
     max: 120,
     paso: 1,
     ayuda: "Menos días liberan capital pero acercan el riesgo de quiebre.",
-  },
-  {
-    k: "liquidacion",
-    etiqueta: "Liquidación de envejecido",
-    unidad: "%",
-    min: 0,
-    max: 45,
-    paso: 1,
-    ayuda: "Descuento sobre el inventario de más de 360 días. Recupera caja, sacrifica margen.",
   },
   {
     k: "gastoFijo",
@@ -355,8 +342,6 @@ export function proyectar(
   const fMkt = efectoMercadotecnia(s.mercadotecnia, BASE.mercadotecnia);
   // Días de inventario por debajo de lo razonable empiezan a costar servicio.
   const riesgoDias = s.diasObjetivo < 35 ? 1 - (35 - s.diasObjetivo) * 0.006 : 1;
-  // Liquidar el envejecido libera anaquel para el producto que sí rota.
-  const fAnaquel = 1 + (s.liquidacion / 100) * 0.14;
 
   const lineas: LineaPlan[] = [];
   const unidadesMes = Array(12).fill(0);
@@ -367,8 +352,6 @@ export function proyectar(
     const anual = corrida.get(col.id) ?? 0;
     if (anual <= 0) continue;
 
-    // El descuento de liquidación afecta al inventario envejecido, no al precio
-    // de lista de todo el año: se cobra una sola vez, más abajo, contra margen.
     // El precio del plan es el de venta a la cadena, no el de lista al público.
     const precioNeto = precioSellIn(col) * (1 + s.precio / 100);
     const costoUnit = precioSellIn(col) * (1 - MARGEN_MARCA) * (1 + s.costo / 100);
@@ -380,7 +363,7 @@ export function proyectar(
 
     for (let m = 0; m < 12; m++) {
       const estac = 1 + (CURVA[m] - 1) * (col.estacionalidad - 1) * 2.1;
-      const u = (anual / 12) * estac * fCrec * fPrecio * fMkt * riesgoDias * fAnaquel;
+      const u = (anual / 12) * estac * fCrec * fPrecio * fMkt * riesgoDias;
       const i = u * precioNeto;
       const k = u * costoUnit;
       unidades.push(u);
@@ -432,11 +415,9 @@ export function proyectar(
   const inventarioPromedio = (costo / 365) * s.diasObjetivo;
   const costoInventario = inventarioPromedio * 0.18;
 
-  // Liquidación: recupera caja del envejecido a cambio de margen, una sola vez
-  const perdidaLiquidacion = capitalParado * (s.liquidacion / 100) * 0.45;
-  const cajaLiberada =
-    (costo / 365) * (BASE.diasObjetivo - s.diasObjetivo) +
-    capitalParado * (s.liquidacion / 100);
+  // Caja que se libera al bajar los días de inventario objetivo. Lo que ya
+  // está en la tienda es de la cadena: la marca solo controla lo que resurte.
+  const cajaLiberada = (costo / 365) * (BASE.diasObjetivo - s.diasObjetivo);
 
   const gastoOperativo =
     s.gastoFijo * 1e6 + ingreso * (s.gastoVariable / 100) + s.mercadotecnia * 1e6;
@@ -450,14 +431,13 @@ export function proyectar(
       (s.gastoFijo * 1e6) / 12 +
       ingresoMes[m] * (s.gastoVariable / 100) +
       (s.mercadotecnia * 1e6) / 12 +
-      costoInventario / 12 +
-      perdidaLiquidacion / 12;
+      costoInventario / 12;
     margenMes.push(mg);
     gastoMes.push(gs);
     ebitdaMes.push(mg - gs);
   }
 
-  const ebitda = margenBruto - gastoOperativo - costoInventario - perdidaLiquidacion;
+  const ebitda = margenBruto - gastoOperativo - costoInventario;
 
   // Reparto por cadena, con el peso que cada una tiene en el sell-in actual
   const pesoCadena = new Map<string, number>();
@@ -493,7 +473,7 @@ export function proyectar(
     margenBruto,
     margenPct: ingreso > 0 ? (margenBruto / ingreso) * 100 : 0,
     gastoOperativo,
-    costoInventario: costoInventario + perdidaLiquidacion,
+    costoInventario,
     ebitda,
     ebitdaPct: ingreso > 0 ? (ebitda / ingreso) * 100 : 0,
     inventarioPromedio,
