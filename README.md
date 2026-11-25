@@ -124,7 +124,7 @@ El flujo trae su propio respaldo: si el modelo falla, el nodo **Respaldo** devue
 | ------------------------ | ------------------------------------------------------------------------------------------------- |
 | **Resumen**              | Salud del canal en piezas y pesos: sell-out y sell-in del periodo, Top 10 de cada uno, qué atender  |
 | **Mapa de alertas**      | El corte anterior junto al actual: qué alertas se resolvieron, cuáles son nuevas y cuáles siguen    |
-| **Qué atender**          | Las decisiones de la semana en orden: no resurtir, resurtir, liquidar                               |
+| **Qué atender**          | Las decisiones de la semana en orden: no resurtir y resurtir                                       |
 | **Detalle por tienda**   | El detalle crudo a nivel tienda × modelo, filtrable y ordenable                                     |
 | **Escenarios**           | Supuestos editables que se propagan por el modelo hasta EBITDA, todo sobre sell-in                  |
 | **Estado de resultados** | P&L proyectado por trimestre sobre sell-in, contra el plan comprometido                             |
@@ -183,7 +183,7 @@ Todo el plan corre sobre **sell-in**: lo que la marca le vende a las cadenas. El
 
 **Las banderas no llevan los logos de las cadenas.** Liverpool, El Palacio de Hierro, Sears y Sanborns son marcas registradas de terceros. Las banderas usan monogramas de diseño propio (`LIV`, `PDH`, `SEA`, `SAN`) en el color de casa de cada cadena. Se leen igual de rápido y no hay riesgo de marca. El componente está en `components/ui.tsx` si algún día se cuenta con assets autorizados.
 
-**No hay traslados.** Una pieza ya resurtida es inventario de la cadena que la compró: moverla entre tiendas es decisión de la cadena, no de la marca. La plataforma solo propone lo que la marca sí controla: no resurtir donde sobra, resurtir donde falta y liquidar lo envejecido.
+**No hay traslados.** Una pieza ya resurtida es inventario de la cadena que la compró: moverla entre tiendas es decisión de la cadena, no de la marca. La plataforma solo propone lo que la marca sí controla: no resurtir donde sobra y resurtir donde falta. Lo que ya está en la tienda tampoco se liquida desde aquí: es de la cadena.
 
 **Siempre piezas y monto.** Ninguna cifra va sola en porcentaje: cada indicador dice cuántas piezas son y cuánto valen. El sell-out se valúa a precio de lista; el sell-in, el inventario y el capital inmovilizado, al precio al que la marca le vende a la cadena.
 
